@@ -592,4 +592,56 @@ contract ScratchCoreWithdrawTest is Test {
         vm.prank(owner);
         core.withdraw();
     }
+
+    function test_setDailyCap_revertsForNonOwner() public {
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.NotOwner.selector);
+        core.setDailyCap(5000);
+    }
+
+    function test_setDailyCap_ownerCanRaiseOrLowerIt() public {
+        vm.prank(owner);
+        core.setDailyCap(5000);
+        assertEq(core.dailyCap(), 5000);
+
+        vm.prank(owner);
+        core.setDailyCap(1);
+        assertEq(core.dailyCap(), 1);
+    }
+
+    function test_setDailyCap_emitsDailyCapUpdatedEvent() public {
+        vm.expectEmit(false, false, false, true);
+        emit ScratchCore.DailyCapUpdated(DAILY_CAP, 42);
+        vm.prank(owner);
+        core.setDailyCap(42);
+    }
+
+    function test_setDailyCap_loweringToAlreadySoldAmountBlocksFurtherPurchasesSameDay() public {
+        vm.prank(player);
+        core.buy{value: 0.005 ether}(ScratchCore.CardType.Classic);
+        assertEq(core.cardsSoldToday(), 1);
+
+        // Lower the cap to exactly what's already sold today.
+        vm.prank(owner);
+        core.setDailyCap(1);
+
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.DailyCapReached.selector);
+        core.buy{value: 0.005 ether}(ScratchCore.CardType.Classic);
+
+        // Raising it again immediately unblocks purchases — no need to wait for the next day.
+        vm.prank(owner);
+        core.setDailyCap(2);
+        vm.prank(player);
+        core.buy{value: 0.005 ether}(ScratchCore.CardType.Classic); // does not revert
+    }
+
+    function test_setDailyCap_settingToZeroActsAsADeFactoPause() public {
+        vm.prank(owner);
+        core.setDailyCap(0);
+
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.DailyCapReached.selector);
+        core.buy{value: 0.005 ether}(ScratchCore.CardType.Classic);
+    }
 }

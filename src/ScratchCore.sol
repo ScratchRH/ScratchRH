@@ -95,7 +95,13 @@ contract ScratchCore {
     uint32 public constant FIVE_X_MULTIPLIER_BPS = 50_000;
     uint32 public constant TEN_X_MULTIPLIER_BPS = 100_000;
 
-    uint256 public immutable dailyCap;
+    /// Deliberately NOT immutable — this is a capacity dial, not a fairness
+    /// lever. It can't touch prices, odds, or payouts, only how many cards
+    /// can sell per day, so `owner` can tune it via setDailyCap(). Accepted
+    /// tradeoff: setting this to 0 is functionally a pause (no new
+    /// purchases until it's raised again), which the rest of the contract
+    /// otherwise has zero capability to do.
+    uint256 public dailyCap;
     uint256 public cardsSoldToday;
     uint256 public currentDay;
 
@@ -115,6 +121,7 @@ contract ScratchCore {
     event JackpotHit(uint256 indexed ticketId, address indexed player, uint256 payout, uint256 rolledOver);
     event RolledOver(uint256 amount);
     event Withdrawn(address indexed owner, uint256 amount);
+    event DailyCapUpdated(uint256 oldCap, uint256 newCap);
 
     error DailyCapReached();
     error TicketNotFound();
@@ -344,6 +351,15 @@ contract ScratchCore {
         uint256 today = block.timestamp / 1 days;
         uint256 sold = today != currentDay ? 0 : cardsSoldToday;
         return sold >= dailyCap ? 0 : dailyCap - sold;
+    }
+
+    /// Capacity dial, not a fairness lever — can't touch prices, odds, or
+    /// payouts. Deliberately allows 0 (functionally a pause until raised
+    /// again); see the dailyCap declaration above for why that's accepted.
+    function setDailyCap(uint256 newCap) external {
+        if (msg.sender != owner) revert NotOwner();
+        emit DailyCapUpdated(dailyCap, newCap);
+        dailyCap = newCap;
     }
 
     /// Dead-game recovery: sweeps the full instant + jackpot balance to

@@ -35,19 +35,24 @@ contract DeployScratchCore is Script {
     address internal constant COIN = 0x6330D8C3178a418788dF01a47479c0ce7CCF450b;
     address internal constant PLTR = 0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A;
 
-    /// TODO: fill in deliberately before running for real.
-    address internal constant OWNER = address(0);
+    /// Also the keeper's address — same wallet holds both roles, a
+    /// deliberate tradeoff the user accepted (2026-07-19): owner's
+    /// sweep()/setDailyCap() powers and the keeper's 24/7 hot-wallet
+    /// exposure now share one key.
+    address internal constant OWNER = 0x2f78D437468E6EBa13e987416d863DcCFdF51b2b;
 
-    /// TODO: fill in deliberately before running for real. This is
-    /// IMMUTABLE on ScratchCore once deployed — RakeRouter (the $SCRATCH
-    /// buyback router) can't be deployed yet since $SCRATCH doesn't exist,
-    /// so either accept a plain EOA/ops wallet here permanently, or hold
-    /// off running this script until RakeRouter is ready and point here
-    /// instead. There is no "swap it later" option.
-    address internal constant RAKE_RECIPIENT = address(0);
+    /// A dedicated wallet, deliberately separate from OPS (2026-07-19) —
+    /// holds ScratchCore's raw rake uncontaminated by other operational
+    /// funds, so its balance always equals "rake collected, not yet routed
+    /// to buyback." IMMUTABLE on ScratchCore once deployed — RakeRouter
+    /// (the $SCRATCH buyback router) can't be deployed yet since $SCRATCH
+    /// doesn't exist, so this wallet just accumulates ETH until someone (or
+    /// an automated bot, not yet built) manually forwards its balance into
+    /// RakeRouter and calls sweep(). There is no "swap it later" option.
+    address internal constant RAKE_RECIPIENT = 0x5f59391821C8FD8ab2377090b0a6d61Eb2310830;
 
-    /// TODO: fill in deliberately before running for real.
-    uint256 internal constant DAILY_CAP = 0;
+    /// Starting cap; owner-adjustable later via ScratchCore.setDailyCap().
+    uint256 internal constant DAILY_CAP = 1000;
 
     function run() external returns (UniswapV4PrizeConverter converter, Randomness randomness, ScratchCore core) {
         require(OWNER != address(0), "OWNER not set");
