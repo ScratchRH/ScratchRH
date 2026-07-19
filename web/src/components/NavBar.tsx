@@ -1,6 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { LogoMark } from "./LogoMark";
 import { XIcon } from "./XIcon";
+import { GitHubIcon } from "./GitHubIcon";
 
 const LINKS = [
   { to: "/scoreboard", label: "Scoreboard" },
@@ -31,15 +32,26 @@ export function NavBar() {
             </NavLink>
           ))}
         </nav>
-        <a
-          href="https://x.com/Scratch_RH"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="social-link"
-          aria-label="Follow on X"
-        >
-          <XIcon />
-        </a>
+        <div className="social-links">
+          <a
+            href="https://github.com/ScratchRH/ScratchRH"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="social-link"
+            aria-label="GitHub repository"
+          >
+            <GitHubIcon />
+          </a>
+          <a
+            href="https://x.com/Scratch_RH"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="social-link"
+            aria-label="Follow on X"
+          >
+            <XIcon />
+          </a>
+        </div>
       </div>
     </header>
   );
