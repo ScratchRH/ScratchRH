@@ -1,0 +1,27 @@
+# Foundry
+cache/
+out/
+broadcast/*/31337/
+broadcast/*/46630/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Env / secrets
+.env
+.env.local
+
+# Keeper runtime state (checkpoint files, not source)
+*keeper-state*.json
+
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Claude Code session worktrees (not project source)
+.claude/worktrees/
