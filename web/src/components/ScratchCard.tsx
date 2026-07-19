@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { CardType, Tier } from "../lib/types";
 import { formatUsd } from "../lib/format";
 import { formatShareAmount, isChaseStock } from "../lib/mockData";
@@ -29,7 +29,7 @@ export function ScratchCard({
   const revealedRef = useRef(false);
   const [revealed, setRevealed] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
