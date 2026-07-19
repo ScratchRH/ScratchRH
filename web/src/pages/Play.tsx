@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { formatEther } from "viem";
+import { encodeFunctionData, formatEther } from "viem";
 import { Confetti } from "../components/Confetti";
 import { FlyingCard } from "../components/FlyingCard";
 import { PackCard } from "../components/PackCard";
@@ -40,29 +40,36 @@ const PENDING_PAYMENT_MS = 1400;
 // local demo of the odds and payout math with no wallet, no RPC, nothing.
 const REAL_MODE = Boolean(SCRATCH_CORE_ADDRESS);
 
+const CARD_TYPE_INDEX: Record<CardType, number> = { Penny: 0, Classic: 1, Premium: 2 };
+const MAX_BATCH = 5;
+
 export function Play() {
   const [selected, setSelected] = useState<CardType>("Classic");
+  const [count, setCount] = useState(1);
 
   // --- demo-mode-only state ---
   const [active, setActive] = useState<ActiveCard | null>(null);
+  const [demoQueue, setDemoQueue] = useState<ActiveCard[]>([]);
   const [flight, setFlight] = useState<Flight | null>(null);
   const [pendingCardType, setPendingCardType] = useState<CardType | null>(null);
 
   // --- shared: has the scratch-off canvas itself been fully scratched away ---
   const [revealedKey, setRevealedKey] = useState<number | null>(null);
 
-  // --- real-mode-only state: which address to watch for a payment from ---
+  // --- real-mode-only state ---
   const [addressInput, setAddressInput] = useState(() => getRememberedAddress());
   const [watchedAddress, setWatchedAddress] = useState<`0x${string}` | undefined>(() => {
     const remembered = getRememberedAddress();
     return isLikelyAddress(remembered) ? remembered : undefined;
   });
   const [watchGeneration, setWatchGeneration] = useState(0);
+  const [currentTicketIdx, setCurrentTicketIdx] = useState(0);
 
   const pickerRefs = useRef<Partial<Record<CardType, HTMLDivElement>>>({});
   const scratchAreaRef = useRef<HTMLDivElement>(null);
 
-  const ticketStatus = useTicketWatcher(REAL_MODE ? watchedAddress : undefined, watchGeneration);
+  const ticketStatuses = useTicketWatcher(REAL_MODE ? watchedAddress : undefined, watchGeneration, count);
+  const ticketStatus = ticketStatuses[currentTicketIdx] ?? { phase: "idle" as const };
 
   const realActive: ActiveCard | null = useMemo(() => {
     if (!REAL_MODE || ticketStatus.phase !== "revealed") return null;
@@ -73,10 +80,6 @@ export function Play() {
       cardType,
       tier,
       floorUsd: config.floorUsd,
-      // No live price feed on the client — this is the same expected-value
-      // estimate for the tier the demo shows, not a read of the exact
-      // dollar amount the swap executed at. The tier, card type, and stock
-      // symbol are all real, read straight from the Scratched event.
       instantUsd: tierPayoutUsd(tier, cardType),
       stockSymbol: tier === "Jackpot" ? "SPY" : symbolForStockToken(ticketStatus.stockToken),
       key: Number(ticketStatus.ticketId),
@@ -95,6 +98,7 @@ export function Play() {
 
   function watchAgain() {
     setRevealedKey(null);
+    setCurrentTicketIdx(0);
     setWatchGeneration((g) => g + 1);
   }
 
@@ -102,6 +106,7 @@ export function Play() {
     const fromEl = pickerRefs.current[selected];
     const toEl = scratchAreaRef.current;
     setActive(null);
+    setDemoQueue([]);
     setRevealedKey(null);
     if (fromEl && toEl) {
       setFlight({
@@ -118,19 +123,29 @@ export function Play() {
   function startPending(cardType: CardType) {
     setPendingCardType(cardType);
     window.setTimeout(() => {
-      const config = CARD_CONFIGS.find((c) => c.type === cardType)!;
-      const tier = rollTier(config.jackpotEntries);
+      const cards: ActiveCard[] = [];
+      for (let i = 0; i < count; i++) {
+        const config = CARD_CONFIGS.find((c) => c.type === cardType)!;
+        const tier = rollTier(config.jackpotEntries);
+        cards.push({
+          cardType,
+          tier,
+          floorUsd: config.floorUsd,
+          instantUsd: tierPayoutUsd(tier, cardType),
+          stockSymbol: tier === "Jackpot" ? "SPY" : pullStock(),
+          key: Date.now() + i,
+        });
+      }
       setPendingCardType(null);
-      setActive({
-        cardType,
-        tier,
-        floorUsd: config.floorUsd,
-        instantUsd: tierPayoutUsd(tier, cardType),
-        // Jackpot always settles in SPY on-chain, regardless of the ticket's mystery pull.
-        stockSymbol: tier === "Jackpot" ? "SPY" : pullStock(),
-        key: Date.now(),
-      });
+      setActive(cards[0]);
+      setDemoQueue(cards.slice(1));
     }, PENDING_PAYMENT_MS);
+  }
+
+  function nextDemoCard() {
+    setActive(demoQueue[0]);
+    setDemoQueue((q) => q.slice(1));
+    setRevealedKey(null);
   }
 
   const revealed = displayActive !== null && revealedKey === displayActive.key;
@@ -189,6 +204,26 @@ export function Play() {
             </div>
           ))}
         </div>
+        <div className="batch-stepper">
+          <span className="batch-stepper-label">Quantity</span>
+          <button
+            className="batch-stepper-btn"
+            type="button"
+            onClick={() => setCount((c) => Math.max(1, c - 1))}
+            disabled={count <= 1}
+          >
+            −
+          </button>
+          <span className="batch-stepper-count">{count}</span>
+          <button
+            className="batch-stepper-btn"
+            type="button"
+            onClick={() => setCount((c) => Math.min(MAX_BATCH, c + 1))}
+            disabled={count >= MAX_BATCH}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       <div className="panel">
@@ -212,28 +247,68 @@ export function Play() {
           {REAL_MODE ? (
             watchedAddress ? (
               <div className="stack" style={{ gap: 8 }}>
-                <div className="holding-row">
-                  <span>Send exactly</span>
-                  <span>{formatEther(CARD_PRICE_WEI[selected])} ETH</span>
-                </div>
-                <div className="holding-row">
-                  <span>To</span>
-                  <span>{SCRATCH_CORE_ADDRESS}</span>
-                </div>
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => navigator.clipboard?.writeText(SCRATCH_CORE_ADDRESS as string)}
-                >
-                  Copy contract address
-                </button>
+                {count === 1 ? (
+                  <>
+                    <div className="holding-row">
+                      <span>Send exactly</span>
+                      <span>{formatEther(CARD_PRICE_WEI[selected])} ETH</span>
+                    </div>
+                    <div className="holding-row">
+                      <span>To</span>
+                      <span>{SCRATCH_CORE_ADDRESS}</span>
+                    </div>
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(SCRATCH_CORE_ADDRESS as string)}
+                    >
+                      Copy contract address
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="holding-row">
+                      <span>Send exactly</span>
+                      <span>{formatEther(CARD_PRICE_WEI[selected] * BigInt(count))} ETH</span>
+                    </div>
+                    <div className="holding-row">
+                      <span>To</span>
+                      <span>{SCRATCH_CORE_ADDRESS}</span>
+                    </div>
+                    <div className="holding-row">
+                      <span>With calldata</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all" }}>
+                        {encodeFunctionData({
+                          abi: [{ type: "function", name: "buyBatch", inputs: [{ name: "cardType", type: "uint8" }, { name: "count", type: "uint8" }], outputs: [], stateMutability: "payable" }],
+                          functionName: "buyBatch",
+                          args: [CARD_TYPE_INDEX[selected], count],
+                        })}
+                      </span>
+                    </div>
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(
+                        encodeFunctionData({
+                          abi: [{ type: "function", name: "buyBatch", inputs: [{ name: "cardType", type: "uint8" }, { name: "count", type: "uint8" }], outputs: [], stateMutability: "payable" }],
+                          functionName: "buyBatch",
+                          args: [CARD_TYPE_INDEX[selected], count],
+                        })
+                      )}
+                    >
+                      Copy calldata
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="empty-state">Enter your address above to get payment instructions.</div>
             )
           ) : (
             <button className="btn" onClick={buy}>
-              Buy {selectedConfig.type} — {formatUsd(selectedConfig.priceUsd, 2)}
+              {count > 1
+                ? `Buy ${count} × ${selectedConfig.type} — ${formatUsd(selectedConfig.priceUsd * count, 2)}`
+                : `Buy ${selectedConfig.type} — ${formatUsd(selectedConfig.priceUsd, 2)}`}
             </button>
           )}
         </div>
@@ -264,6 +339,11 @@ export function Play() {
               </div>
             ) : displayActive ? (
               <>
+                {count > 1 && (
+                  <div className="batch-progress">
+                    Card {currentTicketIdx + 1} of {count}
+                  </div>
+                )}
                 <ScratchCard
                   cardType={displayActive.cardType}
                   tier={displayActive.tier}
@@ -279,9 +359,17 @@ export function Play() {
                       +{xpForCard(CARD_CONFIGS.find((c) => c.type === displayActive.cardType)!.priceUsd)} XP
                       <span className="xp-chip-sub">🔥 streak kept alive</span>
                     </div>
-                    <button className="btn btn-ghost" type="button" onClick={watchAgain}>
-                      Buy another card
-                    </button>
+                    {currentTicketIdx < count - 1 && ticketStatuses[currentTicketIdx + 1]?.phase === "revealed" ? (
+                      <button className="btn" type="button" onClick={() => { setCurrentTicketIdx((i) => i + 1); setRevealedKey(null); }}>
+                        Next card ({count - currentTicketIdx - 1} remaining)
+                      </button>
+                    ) : currentTicketIdx < count - 1 ? (
+                      <div className="empty-state">Waiting for next card reveal…</div>
+                    ) : (
+                      <button className="btn btn-ghost" type="button" onClick={watchAgain}>
+                        Buy another
+                      </button>
+                    )}
                   </>
                 )}
               </>
@@ -295,11 +383,16 @@ export function Play() {
               <img className="pending-ticket-art" src={`/packs/${pendingCardType.toLowerCase()}.webp`} alt="" />
               <div className="pending-ticket-label">
                 <span className="pending-spinner" />
-                Pending payment…
+                {count > 1 ? `Pending ${count} cards…` : "Pending payment…"}
               </div>
             </div>
           ) : active ? (
             <>
+              {(demoQueue.length > 0 || count > 1) && (
+                <div className="batch-progress">
+                  Card {count - demoQueue.length} of {count}
+                </div>
+              )}
               <ScratchCard
                 cardType={active.cardType}
                 tier={active.tier}
@@ -310,10 +403,21 @@ export function Play() {
                 onFullyScratched={() => setRevealedKey(active.key)}
               />
               {revealed && (
-                <div className="xp-chip" key={active.key}>
-                  +{xpForCard(CARD_CONFIGS.find((c) => c.type === active.cardType)!.priceUsd)} XP
-                  <span className="xp-chip-sub">🔥 streak kept alive</span>
-                </div>
+                <>
+                  <div className="xp-chip" key={active.key}>
+                    +{xpForCard(CARD_CONFIGS.find((c) => c.type === active.cardType)!.priceUsd)} XP
+                    <span className="xp-chip-sub">🔥 streak kept alive</span>
+                  </div>
+                  {demoQueue.length > 0 ? (
+                    <button className="btn" type="button" onClick={nextDemoCard}>
+                      Next card ({demoQueue.length} remaining)
+                    </button>
+                  ) : (
+                    <button className="btn btn-ghost" type="button" onClick={buy}>
+                      Buy again
+                    </button>
+                  )}
+                </>
               )}
             </>
           ) : (

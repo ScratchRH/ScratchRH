@@ -133,6 +133,7 @@ contract ScratchCore {
     error NotOwner();
     error StillActive();
     error IncorrectPayment();
+    error InvalidBatchCount();
 
     modifier nonReentrant() {
         if (_locked != 1) revert Reentrancy();
@@ -191,6 +192,24 @@ contract ScratchCore {
     function buy(CardType cardType) external payable nonReentrant returns (uint256 ticketId) {
         if (msg.value != cardConfigs[cardType].price) revert IncorrectPayment();
         ticketId = _buy(cardType);
+    }
+
+    /// Buy multiple cards of the same type in one transaction. Useful for
+    /// players who want a session of cards without sending separate txs.
+    /// Count is capped at 20 to stay safely within block gas limits.
+    /// Each card gets its own ticket ID, randomness request, and reveal.
+    function buyBatch(CardType cardType, uint8 count)
+        external
+        payable
+        nonReentrant
+        returns (uint256[] memory ticketIds)
+    {
+        if (count == 0 || count > 20) revert InvalidBatchCount();
+        if (msg.value != uint256(cardConfigs[cardType].price) * count) revert IncorrectPayment();
+        ticketIds = new uint256[](count);
+        for (uint8 i = 0; i < count; i++) {
+            ticketIds[i] = _buy(cardType);
+        }
     }
 
     /// Lets anyone buy by sending ETH directly to this contract with no calldata —

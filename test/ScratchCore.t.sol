@@ -310,6 +310,90 @@ contract ScratchCoreTest is Test {
 
         assertEq(core.nextTicketId(), nextIdBefore); // no phantom ticket minted
     }
+
+    function test_buyBatch_mintsCorrectCountOfTickets() public {
+        uint8 count = 5;
+        uint256 totalCost = 0.005 ether * count;
+
+        vm.prank(player);
+        uint256[] memory ids = core.buyBatch{value: totalCost}(ScratchCore.CardType.Classic, count);
+
+        assertEq(ids.length, count);
+        for (uint256 i = 0; i < count; i++) {
+            (address ticketPlayer,,,) = core.tickets(ids[i]);
+            assertEq(ticketPlayer, player);
+        }
+    }
+
+    function test_buyBatch_ticketIdsAreContiguous() public {
+        uint256 idBefore = core.nextTicketId();
+        vm.prank(player);
+        uint256[] memory ids = core.buyBatch{value: 0.005 ether * 3}(ScratchCore.CardType.Classic, 3);
+
+        assertEq(ids[0], idBefore);
+        assertEq(ids[1], idBefore + 1);
+        assertEq(ids[2], idBefore + 2);
+    }
+
+    function test_buyBatch_revertsOnIncorrectPayment() public {
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.IncorrectPayment.selector);
+        core.buyBatch{value: 0.005 ether * 4}(ScratchCore.CardType.Classic, 5);
+    }
+
+    function test_buyBatch_revertsOnZeroCount() public {
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.InvalidBatchCount.selector);
+        core.buyBatch{value: 0}(ScratchCore.CardType.Classic, 0);
+    }
+
+    function test_buyBatch_revertsOnCountExceedingMax() public {
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.InvalidBatchCount.selector);
+        core.buyBatch{value: 0.005 ether * 21}(ScratchCore.CardType.Classic, 21);
+    }
+
+    function test_buyBatch_respectsDailyCap() public {
+        vm.prank(owner);
+        core.setDailyCap(3);
+
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.DailyCapReached.selector);
+        core.buyBatch{value: 0.005 ether * 5}(ScratchCore.CardType.Classic, 5);
+    }
+
+    function test_buyBatch_splitsPoolsAndRakePerTicket() public {
+        uint256 rakeBefore = rake.balance;
+        uint256 instantBefore = core.instantPool();
+        uint256 jackpotBefore = core.jackpotPot();
+
+        uint8 count = 3;
+        vm.prank(player);
+        core.buyBatch{value: 0.005 ether * count}(ScratchCore.CardType.Classic, count);
+
+        uint256 price = 0.005 ether;
+        uint256 instantPerCard = (price * core.INSTANT_POOL_BPS()) / core.BPS_DENOM();
+        uint256 jackpotPerCard = (price * core.JACKPOT_BPS()) / core.BPS_DENOM();
+        uint256 floorPerCard = (price * core.FLOOR_BPS()) / core.BPS_DENOM();
+        uint256 rakePerCard = price - instantPerCard - jackpotPerCard - floorPerCard;
+
+        assertEq(rake.balance - rakeBefore, rakePerCard * count);
+        assertEq(core.instantPool() - instantBefore, instantPerCard * count);
+        assertEq(core.jackpotPot() - jackpotBefore, jackpotPerCard * count);
+    }
+
+    function test_buyBatch_allTicketsScratchable() public {
+        uint8 count = 3;
+        vm.prank(player);
+        uint256[] memory ids = core.buyBatch{value: 0.005 ether * count}(ScratchCore.CardType.Classic, count);
+
+        vm.roll(block.number + randomness.REVEAL_DELAY() + 1);
+        for (uint256 i = 0; i < count; i++) {
+            core.scratch(ids[i]);
+            (,,, bool scratched) = core.tickets(ids[i]);
+            assertTrue(scratched);
+        }
+    }
 }
 
 contract ScratchCorePayoutTest is Test {

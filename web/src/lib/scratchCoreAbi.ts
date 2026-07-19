@@ -35,6 +35,16 @@ export const scratchCoreAbi = [
   },
   {
     type: "function",
+    name: "buyBatch",
+    stateMutability: "payable",
+    inputs: [
+      { name: "cardType", type: "uint8" },
+      { name: "count", type: "uint8" },
+    ],
+    outputs: [{ name: "ticketIds", type: "uint256[]" }],
+  },
+  {
+    type: "function",
     name: "tickets",
     stateMutability: "view",
     inputs: [{ name: "", type: "uint256" }],
