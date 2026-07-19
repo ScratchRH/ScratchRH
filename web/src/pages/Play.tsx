@@ -345,6 +345,7 @@ export function Play() {
                   </div>
                 )}
                 <ScratchCard
+                  key={displayActive.key}
                   cardType={displayActive.cardType}
                   tier={displayActive.tier}
                   floorUsd={displayActive.floorUsd}
@@ -394,6 +395,7 @@ export function Play() {
                 </div>
               )}
               <ScratchCard
+                key={active.key}
                 cardType={active.cardType}
                 tier={active.tier}
                 floorUsd={active.floorUsd}
