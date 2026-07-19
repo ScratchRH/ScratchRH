@@ -31,13 +31,14 @@ contract LaunchScratchTokenTest is Test {
             taxDuration: 315_360_000,
             initialBuy: 0,
             dividendBps: 0,
-            mktBps: 10_000,
+            mktBps: 9000,
+            deflationBps: 1000,
             minimumShareBalance: 0,
             salt: keccak256("seed")
         });
     }
 
-    function test_defaultSplit_allTaxRoutesToBeneficiaryNoneToHolders() public {
+    function test_defaultSplit_ninetyMktTenDeflationNoneToHolders() public {
         address token = script.launch(defaultConfig());
         assertTrue(token != address(0));
 
@@ -46,9 +47,11 @@ contract LaunchScratchTokenTest is Test {
         assertEq(p.beneficiary, taxRouter);
         assertEq(p.buyTaxRate, 300);
         assertEq(p.sellTaxRate, 300);
-        assertEq(p.mktBps, 10_000);
+        assertEq(p.mktBps, 9000);
+        assertEq(p.deflationBps, 1000);
         assertEq(p.dividendBps, 0);
-        assertEq(uint256(p.mktBps) + uint256(p.dividendBps), 10_000);
+        assertEq(uint256(p.mktBps) + uint256(p.deflationBps) + uint256(p.dividendBps), 10_000);
+        assertEq(p.lpBps, 0); // deliberately unused — see script's doc comment
         assertEq(p.tokenVersion, 6); // TOKEN_TAXED_V3
         assertEq(p.migratorType, 1); // V2 migrator (required for tax tokens)
         assertEq(p.quoteToken, address(0)); // native ETH quote
@@ -56,8 +59,9 @@ contract LaunchScratchTokenTest is Test {
 
     function test_customSplit_honorsOverrides() public {
         LaunchScratchToken.LaunchConfig memory cfg = defaultConfig();
-        cfg.dividendBps = 5000;
-        cfg.mktBps = 5000;
+        cfg.dividendBps = 3000;
+        cfg.mktBps = 6000;
+        cfg.deflationBps = 1000;
         cfg.taxBps = 500;
 
         script.launch(cfg);
@@ -65,15 +69,17 @@ contract LaunchScratchTokenTest is Test {
         IFlapPortalLauncher.NewTokenV6Params memory p = MockFlapPortal(PORTAL).getLastParams();
         assertEq(p.buyTaxRate, 500);
         assertEq(p.sellTaxRate, 500);
-        assertEq(p.mktBps, 5000);
-        assertEq(p.dividendBps, 5000);
+        assertEq(p.mktBps, 6000);
+        assertEq(p.dividendBps, 3000);
+        assertEq(p.deflationBps, 1000);
     }
 
     function test_revertsIfSplitDoesNotSumToDenominator() public {
         LaunchScratchToken.LaunchConfig memory cfg = defaultConfig();
         cfg.dividendBps = 6000;
-        cfg.mktBps = 3000; // sums to 9000, not 10000
-        vm.expectRevert(bytes("dividendBps + mktBps must equal 10000"));
+        cfg.mktBps = 3000;
+        cfg.deflationBps = 500; // sums to 9500, not 10000
+        vm.expectRevert(bytes("dividendBps + mktBps + deflationBps must equal 10000"));
         script.launch(cfg);
     }
 
@@ -99,5 +105,19 @@ contract LaunchScratchTokenTest is Test {
         vm.setEnv("META_CID", "bafktest");
         vm.expectRevert(bytes("TOKEN_TAX_ROUTER not set - deploy ScratchCore.s.sol first"));
         script.run();
+    }
+
+    /// Proves the on-chain vanity salt search actually produces a salt
+    /// whose predicted CREATE2 address ends in the `7777` suffix Portal
+    /// requires for tax tokens — not just that the loop compiles.
+    function test_findVanitySalt_producesAnAddressEndingIn7777() public view {
+        bytes32 salt = script.exposed_findVanitySalt();
+
+        address tokenImpl = script.TOKEN_IMPL_TAXED_V3();
+        bytes memory cloneBytecode =
+            abi.encodePacked(hex"3d602d80600a3d3981f3363d3d373d3d3d363d73", tokenImpl, hex"5af43d82803e903d91602b57fd5bf3");
+        address predicted = vm.computeCreate2Address(salt, keccak256(cloneBytecode), PORTAL);
+
+        assertEq(uint160(predicted) & 0xFFFF, 0x7777);
     }
 }

@@ -1,4 +1,5 @@
 import { FundSplitBar } from "../components/FundSplitBar";
+import { TOKEN_TAX_SPLIT } from "../lib/mockData";
 
 interface FlywheelNode {
   id: string;
@@ -134,6 +135,16 @@ export function Flywheel() {
           change it once it's live.
         </p>
         <FundSplitBar />
+      </div>
+
+      <div className="panel">
+        <div className="panel-title">Where every $SCRATCH trade goes</div>
+        <p className="flywheel-intro">
+          A separate split from the one above — this taxes $SCRATCH's own trading, not card sales. $SCRATCH holders
+          get none of it as dividends: trading the token funds the game's prize pools directly and shrinks the
+          token's own supply, instead of paying passive holders.
+        </p>
+        <FundSplitBar segments={TOKEN_TAX_SPLIT} />
       </div>
 
       <div className="panel">

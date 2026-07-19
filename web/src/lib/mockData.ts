@@ -25,6 +25,16 @@ export const FUND_SPLIT: FundSplitSegment[] = [
   { label: "$SCRATCH buyback", bps: 500, colorVar: "var(--red)", note: "Market-buys $SCRATCH every sweep" },
 ];
 
+/** Mirrors $SCRATCH's own Flap launch tax split (script/LaunchScratchToken.s.sol) — a
+ * completely separate fee stream from FUND_SPLIT above. This taxes $SCRATCH's own
+ * trading, not card sales, and pays $SCRATCH holders nothing: trading the token funds
+ * the game and shrinks supply instead. */
+export const TOKEN_TAX_SPLIT: FundSplitSegment[] = [
+  { label: "Game rewards", bps: 8000, colorVar: "var(--purple)", note: "Straight into the instant pool and jackpot, split 50/50" },
+  { label: "Ops", bps: 1000, colorVar: "var(--fg-dim)", note: "Keeps the lights on" },
+  { label: "Burn", bps: 1000, colorVar: "var(--red)", note: "Automatic buyback-and-burn — shrinks $SCRATCH supply on every trade" },
+];
+
 /** Mirrors ScratchCore's DeckEntry weights (must sum to 10,000, same as the contract requires). */
 interface DeckEntry {
   symbol: string;

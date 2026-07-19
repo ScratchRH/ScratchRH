@@ -44,14 +44,17 @@ contract TokenTaxRouterTest is Test {
         router.sweep();
     }
 
-    function test_sweep_splitsTenNinetyToOpsAndPrizePools() public {
+    // This contract only ever receives mktBps's 90%-of-total-tax share
+    // (the other 10% burns before reaching here) — so OPS_BPS/POOLS_BPS
+    // (~11.11%/~88.89% of THAT) work out to 10%/80% of the total tax.
+    function test_sweep_splitsElevenEightyNineToOpsAndPrizePools() public {
         vm.deal(address(router), 1 ether);
 
         (uint256 opsAmount, uint256 poolsAmount) = router.sweep();
 
-        assertEq(opsAmount, 0.1 ether);
-        assertEq(poolsAmount, 0.9 ether);
-        assertEq(opsRecipient.balance, 0.1 ether);
+        assertEq(opsAmount, 0.1111 ether);
+        assertEq(poolsAmount, 0.8889 ether);
+        assertEq(opsRecipient.balance, 0.1111 ether);
         assertEq(address(router).balance, 0);
     }
 
@@ -59,9 +62,9 @@ contract TokenTaxRouterTest is Test {
         vm.deal(address(router), 1 ether);
         router.sweep();
 
-        // 0.9 ether to pools, split 50/50 inside ScratchCore.fundPools().
-        assertEq(core.instantPool(), 0.45 ether);
-        assertEq(core.jackpotPot(), 0.45 ether);
+        // 0.8889 ether to pools, split 50/50 inside ScratchCore.fundPools().
+        assertEq(core.instantPool(), 0.44445 ether);
+        assertEq(core.jackpotPot(), 0.44445 ether);
     }
 
     function test_sweep_isPermissionless() public {
@@ -70,15 +73,15 @@ contract TokenTaxRouterTest is Test {
         vm.prank(address(0xCAFE));
         router.sweep();
 
-        assertEq(opsRecipient.balance, 0.1 ether);
-        assertEq(core.instantPool(), 0.45 ether);
+        assertEq(opsRecipient.balance, 0.1111 ether);
+        assertEq(core.instantPool(), 0.44445 ether);
     }
 
     function test_sweep_emitsSweptEvent() public {
         vm.deal(address(router), 1 ether);
 
         vm.expectEmit(true, true, true, true);
-        emit TokenTaxRouter.Swept(0.1 ether, 0.9 ether);
+        emit TokenTaxRouter.Swept(0.1111 ether, 0.8889 ether);
         router.sweep();
     }
 
@@ -89,9 +92,9 @@ contract TokenTaxRouterTest is Test {
         vm.deal(address(router), 1 ether);
         router.sweep();
 
-        assertEq(opsRecipient.balance, 0.2 ether);
-        assertEq(core.instantPool(), 0.9 ether);
-        assertEq(core.jackpotPot(), 0.9 ether);
+        assertEq(opsRecipient.balance, 0.2222 ether);
+        assertEq(core.instantPool(), 0.8889 ether);
+        assertEq(core.jackpotPot(), 0.8889 ether);
     }
 
     function test_sweep_doesNotAffectPreExistingPoolBalancesFromTicketSales() public {
@@ -106,7 +109,7 @@ contract TokenTaxRouterTest is Test {
         vm.deal(address(router), 1 ether);
         router.sweep();
 
-        assertEq(core.instantPool(), instantBeforeSweep + 0.45 ether);
-        assertEq(core.jackpotPot(), jackpotBeforeSweep + 0.45 ether);
+        assertEq(core.instantPool(), instantBeforeSweep + 0.44445 ether);
+        assertEq(core.jackpotPot(), jackpotBeforeSweep + 0.44445 ether);
     }
 }

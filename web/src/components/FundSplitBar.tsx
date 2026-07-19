@@ -1,14 +1,15 @@
-import { FUND_SPLIT } from "../lib/mockData";
+import { FUND_SPLIT, type FundSplitSegment } from "../lib/mockData";
 
 interface FundSplitBarProps {
   priceUsd?: number;
+  segments?: FundSplitSegment[];
 }
 
-export function FundSplitBar({ priceUsd }: FundSplitBarProps) {
+export function FundSplitBar({ priceUsd, segments = FUND_SPLIT }: FundSplitBarProps) {
   return (
     <div className="fund-split">
       <div className="fund-split-bar">
-        {FUND_SPLIT.map((segment) => (
+        {segments.map((segment) => (
           <div
             key={segment.label}
             className="fund-split-bar-segment"
@@ -18,7 +19,7 @@ export function FundSplitBar({ priceUsd }: FundSplitBarProps) {
         ))}
       </div>
       <div className="fund-split-legend">
-        {FUND_SPLIT.map((segment) => (
+        {segments.map((segment) => (
           <div className="fund-split-legend-item" key={segment.label}>
             <span className="fund-split-legend-swatch" style={{ background: segment.colorVar }} />
             <div>
