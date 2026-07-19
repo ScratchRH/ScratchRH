@@ -8,6 +8,7 @@ import { Play } from "./pages/Play";
 import { Leaderboard } from "./pages/Leaderboard";
 import { Portfolio } from "./pages/Portfolio";
 import { HowItWorks } from "./pages/HowItWorks";
+import { Docs } from "./pages/Docs";
 import { Flywheel } from "./pages/Flywheel";
 import { Odds } from "./pages/Odds";
 
@@ -31,6 +32,7 @@ function App() {
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/docs" element={<Docs />} />
             <Route path="/flywheel" element={<Flywheel />} />
           </Routes>
         </div>

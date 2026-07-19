@@ -8,7 +8,7 @@ const LINKS = [
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/play", label: "Play" },
   { to: "/portfolio", label: "Portfolio" },
-  { to: "/how-it-works", label: "How It Works" },
+  { to: "/docs", label: "Docs" },
   { to: "/flywheel", label: "Flywheel" },
 ];
 
