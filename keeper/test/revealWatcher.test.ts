@@ -10,6 +10,7 @@ import {
   http,
   getContractAddress,
   parseEventLogs,
+  parseEther,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -81,9 +82,10 @@ test("reveal watcher cranks a matured ticket end-to-end on a local anvil chain",
     return { address: receipt.contractAddress, abi };
   }
 
-  const paymentToken = await deploy("MockERC20.sol", "MockERC20", ["Mock USDG", "mUSDG", 18]);
+  // ScratchCore is paid in native ETH (no ERC20 payment token) — anvil's
+  // default accounts start funded, so no minting/approval step is needed.
   const spy = await deploy("MockStockToken.sol", "MockStockToken", ["Mock SPY", "mSPY"]);
-  const converter = await deploy("MockPrizeConverter.sol", "MockPrizeConverter", [paymentToken.address]);
+  const converter = await deploy("MockPrizeConverter.sol", "MockPrizeConverter");
 
   // Randomness needs to know ScratchCore's address up front (immutable
   // `consumer`), so predict it from the deployer's next nonce — same trick
@@ -95,40 +97,32 @@ test("reveal watcher cranks a matured ticket end-to-end on a local anvil chain",
 
   const dailyCap = 1000n;
   const deck = [{ token: spy.address, weightBps: 10_000 }];
+  // Same lineup ScratchCore.s.sol's _cardConfigs() ships — Penny/Classic/Premium.
+  const cardConfigs = [
+    { price: parseEther("0.001"), jackpotEntries: 0 },
+    { price: parseEther("0.005"), jackpotEntries: 1 },
+    { price: parseEther("0.01"), jackpotEntries: 2 },
+  ];
   const core = await deploy("ScratchCore.sol", "ScratchCore", [
-    paymentToken.address,
     converter.address,
     randomness.address,
     deployer.address, // rakeRecipient
     spy.address, // jackpotStockToken
     deck,
+    cardConfigs,
     dailyCap,
+    deployer.address, // owner
   ]);
   assert.equal(core.address.toLowerCase(), predictedCore.toLowerCase(), "CREATE address prediction must match");
 
-  // Fund + approve the player, then buy a Classic ticket.
-  const mintHash = await deployerClient.writeContract({
-    address: paymentToken.address,
-    abi: paymentToken.abi,
-    functionName: "mint",
-    args: [player.address, 1_000n * 10n ** 18n],
-  });
-  await publicClient.waitForTransactionReceipt({ hash: mintHash });
-
-  const approveHash = await playerClient.writeContract({
-    address: paymentToken.address,
-    abi: paymentToken.abi,
-    functionName: "approve",
-    args: [core.address, 2n ** 256n - 1n],
-  });
-  await publicClient.waitForTransactionReceipt({ hash: approveHash });
-
+  // Buy a Classic ticket by sending its exact ETH price directly.
   const CARD_TYPE_CLASSIC = 1;
   const buyHash = await playerClient.writeContract({
     address: core.address,
     abi: core.abi,
     functionName: "buy",
     args: [CARD_TYPE_CLASSIC],
+    value: parseEther("0.005"),
   });
   const buyReceipt = await publicClient.waitForTransactionReceipt({ hash: buyHash });
   const [boughtEvent] = parseEventLogs({ abi: core.abi, logs: buyReceipt.logs, eventName: "Bought" }) as unknown as [
