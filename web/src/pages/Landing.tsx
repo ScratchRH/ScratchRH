@@ -68,7 +68,7 @@ export function Landing() {
 
       <section className="landing-final-cta">
         <Link className="btn" to="/play">
-          Pick a Pack
+          Pick a Card
         </Link>
       </section>
     </div>

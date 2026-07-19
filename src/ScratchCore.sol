@@ -139,6 +139,7 @@ contract ScratchCore {
         address _rakeRecipient,
         address _jackpotStockToken,
         DeckEntry[] memory _deck,
+        CardConfig[3] memory _cardConfigs,
         uint256 _dailyCap,
         address _owner
     ) {
@@ -160,11 +161,19 @@ contract ScratchCore {
         }
         if (totalWeight != BPS_DENOM) revert InvalidDeckWeights();
 
-        // Placeholder ETH-denominated prices, same 1:5:10 ratio as the $1/$5/$10
-        // pricing in SPEC.md §2 — not a live USD conversion; tune before mainnet.
-        cardConfigs[CardType.Penny] = CardConfig({price: 0.001 ether, jackpotEntries: 0});
-        cardConfigs[CardType.Classic] = CardConfig({price: 0.005 ether, jackpotEntries: 1});
-        cardConfigs[CardType.Premium] = CardConfig({price: 0.01 ether, jackpotEntries: 2});
+        // Indices match CardType's declaration order (Penny, Classic,
+        // Premium) exactly — there are only ever these 3 slots, since
+        // CardType is a fixed enum a live contract can never grow. A new
+        // price lineup (or a whole new tier) means a new deployment, same
+        // as `deck` above — matching the no-owner ethos, this is set once
+        // here and has no setter. Odds and payout multipliers stay global
+        // `constant`s (not per-card, not parameterized here) — they're the
+        // core probability math, and keeping them as plain constants means
+        // every deployment's game math is visible in the bytecode/diff
+        // itself rather than hidden in constructor calldata.
+        cardConfigs[CardType.Penny] = _cardConfigs[0];
+        cardConfigs[CardType.Classic] = _cardConfigs[1];
+        cardConfigs[CardType.Premium] = _cardConfigs[2];
     }
 
     function deckSize() external view returns (uint256) {

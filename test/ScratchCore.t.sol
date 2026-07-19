@@ -25,6 +25,14 @@ contract ScratchCoreTest is Test {
         deck[0] = ScratchCore.DeckEntry({token: token, weightBps: 10_000});
     }
 
+    /// Same prices/jackpot-entries ScratchCore used to hardcode internally,
+    /// now supplied by the constructor's caller instead.
+    function _defaultCardConfigs() internal pure returns (ScratchCore.CardConfig[3] memory cfg) {
+        cfg[0] = ScratchCore.CardConfig({price: 0.001 ether, jackpotEntries: 0}); // Penny
+        cfg[1] = ScratchCore.CardConfig({price: 0.005 ether, jackpotEntries: 1}); // Classic
+        cfg[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2}); // Premium
+    }
+
     function setUp() public {
         spy = new MockStockToken("Mock SPY", "mSPY");
         converter = new MockPrizeConverter();
@@ -34,7 +42,9 @@ contract ScratchCoreTest is Test {
         address predictedCore = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         randomness = new Randomness(predictedCore);
 
-        core = new ScratchCore(converter, randomness, rake, address(spy), _singleTokenDeck(address(spy)), DAILY_CAP, owner);
+        core = new ScratchCore(
+            converter, randomness, rake, address(spy), _singleTokenDeck(address(spy)), _defaultCardConfigs(), DAILY_CAP, owner
+        );
         assertEq(address(core), predictedCore);
 
         vm.deal(player, 1_000 ether);
@@ -99,7 +109,9 @@ contract ScratchCoreTest is Test {
     function _deploySmallCappedCore() internal returns (ScratchCore small) {
         address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         Randomness r = new Randomness(predicted);
-        small = new ScratchCore(converter, r, rake, address(spy), _singleTokenDeck(address(spy)), 1, owner);
+        small = new ScratchCore(
+            converter, r, rake, address(spy), _singleTokenDeck(address(spy)), _defaultCardConfigs(), 1, owner
+        );
         assertEq(address(small), predicted);
     }
 
@@ -125,17 +137,53 @@ contract ScratchCoreTest is Test {
         small.buy{value: 0.001 ether}(ScratchCore.CardType.Penny); // does not revert
     }
 
+    function test_constructor_honorsCustomCardConfigs() public {
+        // A hypothetical "season 2" lineup, deliberately different from
+        // _defaultCardConfigs() in both price and jackpot entries, proving
+        // these values genuinely come from the constructor argument now —
+        // not still hardcoded internally.
+        ScratchCore.CardConfig[3] memory season2;
+        season2[0] = ScratchCore.CardConfig({price: 0.002 ether, jackpotEntries: 0}); // Penny
+        season2[1] = ScratchCore.CardConfig({price: 0.02 ether, jackpotEntries: 3}); // Classic
+        season2[2] = ScratchCore.CardConfig({price: 0.1 ether, jackpotEntries: 5}); // Premium
+
+        address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        Randomness r = new Randomness(predicted);
+        ScratchCore custom =
+            new ScratchCore(converter, r, rake, address(spy), _singleTokenDeck(address(spy)), season2, DAILY_CAP, owner);
+
+        (uint128 pennyPrice, uint8 pennyEntries) = custom.cardConfigs(ScratchCore.CardType.Penny);
+        (uint128 classicPrice, uint8 classicEntries) = custom.cardConfigs(ScratchCore.CardType.Classic);
+        (uint128 premiumPrice, uint8 premiumEntries) = custom.cardConfigs(ScratchCore.CardType.Premium);
+        assertEq(pennyPrice, 0.002 ether);
+        assertEq(pennyEntries, 0);
+        assertEq(classicPrice, 0.02 ether);
+        assertEq(classicEntries, 3);
+        assertEq(premiumPrice, 0.1 ether);
+        assertEq(premiumEntries, 5);
+
+        // buy() actually enforces the new prices, not the old defaults.
+        vm.prank(player);
+        vm.expectRevert(ScratchCore.IncorrectPayment.selector);
+        custom.buy{value: 0.005 ether}(ScratchCore.CardType.Classic); // old Classic price, now wrong
+
+        vm.prank(player);
+        uint256 ticketId = custom.buy{value: 0.02 ether}(ScratchCore.CardType.Classic); // new Classic price
+        (address ticketPlayer,,,) = custom.tickets(ticketId);
+        assertEq(ticketPlayer, player);
+    }
+
     function test_constructor_revertsOnEmptyDeck() public {
         ScratchCore.DeckEntry[] memory emptyDeck = new ScratchCore.DeckEntry[](0);
         vm.expectRevert(ScratchCore.EmptyDeck.selector);
-        new ScratchCore(converter, randomness, rake, address(spy), emptyDeck, DAILY_CAP, owner);
+        new ScratchCore(converter, randomness, rake, address(spy), emptyDeck, _defaultCardConfigs(), DAILY_CAP, owner);
     }
 
     function test_constructor_revertsOnDeckWeightsNotSummingToDenom() public {
         ScratchCore.DeckEntry[] memory badDeck = new ScratchCore.DeckEntry[](1);
         badDeck[0] = ScratchCore.DeckEntry({token: address(spy), weightBps: 9_000});
         vm.expectRevert(ScratchCore.InvalidDeckWeights.selector);
-        new ScratchCore(converter, randomness, rake, address(spy), badDeck, DAILY_CAP, owner);
+        new ScratchCore(converter, randomness, rake, address(spy), badDeck, _defaultCardConfigs(), DAILY_CAP, owner);
     }
 
     function test_scratch_revertsForUnknownTicket() public {
@@ -233,14 +281,21 @@ contract ScratchCorePayoutTest is Test {
         deck[0] = ScratchCore.DeckEntry({token: token, weightBps: 10_000});
     }
 
+    function _defaultCardConfigs() internal pure returns (ScratchCore.CardConfig[3] memory cfg) {
+        cfg[0] = ScratchCore.CardConfig({price: 0.001 ether, jackpotEntries: 0}); // Penny
+        cfg[1] = ScratchCore.CardConfig({price: 0.005 ether, jackpotEntries: 1}); // Classic
+        cfg[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2}); // Premium
+    }
+
     function setUp() public {
         spy = new MockStockToken("Mock SPY", "mSPY");
         converter = new MockPrizeConverter();
 
         address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         randomness = new Randomness(predicted);
-        harness =
-            new ScratchCoreHarness(converter, randomness, rake, address(spy), _singleTokenDeck(address(spy)), 1000, owner);
+        harness = new ScratchCoreHarness(
+            converter, randomness, rake, address(spy), _singleTokenDeck(address(spy)), _defaultCardConfigs(), 1000, owner
+        );
         assertEq(address(harness), predicted);
 
         vm.deal(player, 1_000 ether);
@@ -296,6 +351,12 @@ contract ScratchCoreMysteryPackTest is Test {
         deck[2] = ScratchCore.DeckEntry({token: address(tsla), weightBps: 500});
     }
 
+    function _defaultCardConfigs() internal pure returns (ScratchCore.CardConfig[3] memory cfg) {
+        cfg[0] = ScratchCore.CardConfig({price: 0.001 ether, jackpotEntries: 0}); // Penny
+        cfg[1] = ScratchCore.CardConfig({price: 0.005 ether, jackpotEntries: 1}); // Classic
+        cfg[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2}); // Premium
+    }
+
     function setUp() public {
         spy = new MockStockToken("Mock SPY", "mSPY");
         nvda = new MockStockToken("Mock NVDA", "mNVDA");
@@ -304,15 +365,18 @@ contract ScratchCoreMysteryPackTest is Test {
 
         address predictedCore = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         randomness = new Randomness(predictedCore);
-        core = new ScratchCore(converter, randomness, rake, address(spy), _threeTokenDeck(), 1000, owner);
+        core = new ScratchCore(
+            converter, randomness, rake, address(spy), _threeTokenDeck(), _defaultCardConfigs(), 1000, owner
+        );
         assertEq(address(core), predictedCore);
 
         vm.deal(player, 1_000 ether);
     }
 
     function test_pullStock_respectsCumulativeWeightBoundaries() public {
-        ScratchCoreHarness harness =
-            new ScratchCoreHarness(converter, randomness, rake, address(spy), _threeTokenDeck(), 1000, owner);
+        ScratchCoreHarness harness = new ScratchCoreHarness(
+            converter, randomness, rake, address(spy), _threeTokenDeck(), _defaultCardConfigs(), 1000, owner
+        );
 
         // roll lands in the "stock pull" slice at (randomWord / 10_000) % 10_000.
         assertEq(harness.pullStock(0), address(spy)); // roll 0 -> within SPY's 0..6999
@@ -369,7 +433,13 @@ contract ScratchCoreTierResolutionTest is Test {
         Randomness randomness = new Randomness(address(0));
         ScratchCore.DeckEntry[] memory deck = new ScratchCore.DeckEntry[](1);
         deck[0] = ScratchCore.DeckEntry({token: address(0xC0FFEE), weightBps: 10_000});
-        harness = new ScratchCoreHarness(converter, randomness, address(0xFEE5), address(0xC0FFEE), deck, 1000, address(0xB055));
+        ScratchCore.CardConfig[3] memory cardConfigs;
+        cardConfigs[0] = ScratchCore.CardConfig({price: 0.001 ether, jackpotEntries: 0});
+        cardConfigs[1] = ScratchCore.CardConfig({price: 0.005 ether, jackpotEntries: 1});
+        cardConfigs[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2});
+        harness = new ScratchCoreHarness(
+            converter, randomness, address(0xFEE5), address(0xC0FFEE), deck, cardConfigs, 1000, address(0xB055)
+        );
     }
 
     function test_resolveTier_jackpotEligible_boundaries() public view {
@@ -420,6 +490,12 @@ contract ScratchCoreWithdrawTest is Test {
         deck[0] = ScratchCore.DeckEntry({token: token, weightBps: 10_000});
     }
 
+    function _defaultCardConfigs() internal pure returns (ScratchCore.CardConfig[3] memory cfg) {
+        cfg[0] = ScratchCore.CardConfig({price: 0.001 ether, jackpotEntries: 0}); // Penny
+        cfg[1] = ScratchCore.CardConfig({price: 0.005 ether, jackpotEntries: 1}); // Classic
+        cfg[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2}); // Premium
+    }
+
     function setUp() public {
         spy = new MockStockToken("Mock SPY", "mSPY");
         converter = new MockPrizeConverter();
@@ -427,7 +503,9 @@ contract ScratchCoreWithdrawTest is Test {
         address predictedCore = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         randomness = new Randomness(predictedCore);
 
-        core = new ScratchCore(converter, randomness, rake, address(spy), _singleTokenDeck(address(spy)), DAILY_CAP, owner);
+        core = new ScratchCore(
+            converter, randomness, rake, address(spy), _singleTokenDeck(address(spy)), _defaultCardConfigs(), DAILY_CAP, owner
+        );
         assertEq(address(core), predictedCore);
 
         vm.deal(player, 1_000 ether);

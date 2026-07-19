@@ -15,9 +15,12 @@ contract ScratchCoreHarness is ScratchCore {
         address _rakeRecipient,
         address _jackpotStockToken,
         DeckEntry[] memory _deck,
+        CardConfig[3] memory _cardConfigs,
         uint256 _dailyCap,
         address _owner
-    ) ScratchCore(_converter, _randomness, _rakeRecipient, _jackpotStockToken, _deck, _dailyCap, _owner) {}
+    )
+        ScratchCore(_converter, _randomness, _rakeRecipient, _jackpotStockToken, _deck, _cardConfigs, _dailyCap, _owner)
+    {}
 
     function resolveTier(uint256 roll, uint8 jackpotEntries) external pure returns (Tier) {
         return _resolveTier(roll, jackpotEntries);

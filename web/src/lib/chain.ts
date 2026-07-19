@@ -1,0 +1,28 @@
+import { createPublicClient, defineChain, http } from "viem";
+
+// Same chain facts as keeper/src/chain.ts, duplicated rather than shared as
+// a package since the keeper and web app deploy separately. Defaults to
+// Robinhood Chain mainnet since this is the public-facing site; override via
+// .env.local for local/testnet development against an anvil fork or the
+// real testnet (chain 46630).
+const RPC_URL = import.meta.env.VITE_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com";
+const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? 4663);
+
+// Unset until ScratchCore is actually deployed (see script/ScratchCore.s.sol).
+// Pages that need real chain data should treat an unset address as "demo
+// mode" rather than trying to point at nothing.
+export const SCRATCH_CORE_ADDRESS = import.meta.env.VITE_SCRATCH_CORE_ADDRESS as `0x${string}` | undefined;
+
+export const robinhoodChain = defineChain({
+  id: CHAIN_ID,
+  name: "Robinhood Chain",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [RPC_URL] },
+  },
+});
+
+export const publicClient = createPublicClient({
+  chain: robinhoodChain,
+  transport: http(RPC_URL),
+});

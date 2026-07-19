@@ -9,69 +9,60 @@ interface FlywheelNode {
   blurb: string;
 }
 
-// Hexagon layout, clockwise from the top. Coordinates match the viewBox
+// Pentagon layout, clockwise from the top. Coordinates match the viewBox
 // below so the SVG connectors and the HTML node divs line up.
 const NODES: FlywheelNode[] = [
-  {
-    id: "daily",
-    label: "Free daily scratch",
-    category: "engagement",
-    x: 350,
-    y: 80,
-    blurb: "One free floor-value card per day — claimed with your SIWE session, no transaction ever.",
-  },
   {
     id: "streak",
     label: "Streak compounds",
     category: "engagement",
-    x: 580,
-    y: 220,
-    blurb: "Every consecutive day boosts floor payouts up to +50%. Breaking the streak costs you.",
+    x: 350,
+    y: 80,
+    blurb: "Buy at least one card a day and the streak compounds — floor payouts scale up to +50%. Skip a day and it resets.",
   },
   {
     id: "buy",
     label: "Buy cards",
     category: "core",
-    x: 580,
-    y: 420,
+    x: 570,
+    y: 246,
     blurb: "Streak bonuses make paid packs better value — and a slice of every sale buys $SCRATCH and feeds the jackpot.",
   },
   {
     id: "push",
     label: "House pushes stock",
     category: "core",
-    x: 350,
-    y: 560,
+    x: 485,
+    y: 514,
     blurb: "Every payout is sent by the operator wallet, which pays the gas. No claims, no approvals, no signatures.",
   },
   {
     id: "grow",
     label: "Portfolio & deck grow",
     category: "token",
-    x: 120,
-    y: 420,
+    x: 215,
+    y: 514,
     blurb: "Your wallet fills with real stock and rare pulls fill the collection book — all read straight off the chain.",
   },
   {
     id: "shared",
     label: "Wins get shared",
     category: "engagement",
-    x: 120,
-    y: 220,
-    blurb: "Big wins and completed decks auto-post to X — new players verify once and enter the loop.",
+    x: 131,
+    y: 246,
+    blurb: "Big wins and completed decks auto-post to X — new players enter the loop straight from the buy.",
   },
 ];
 
 const LOOP_PATH =
-  "M350,80 Q520,120 580,220 Q640,320 580,420 Q520,520 350,560 Q180,520 120,420 Q60,320 120,220 Q180,120 350,80 Z";
+  "M350,80 Q500,108 570,246 Q590,401 485,514 Q350,582 215,514 Q111,401 131,246 Q202,108 350,80 Z";
 
 const ARROW_SEGMENTS = [
-  "M350,80 Q520,120 580,220",
-  "M580,220 Q640,320 580,420",
-  "M580,420 Q520,520 350,560",
-  "M350,560 Q180,520 120,420",
-  "M120,420 Q60,320 120,220",
-  "M120,220 Q180,120 350,80",
+  "M350,80 Q500,108 570,246",
+  "M570,246 Q590,401 485,514",
+  "M485,514 Q350,582 215,514",
+  "M215,514 Q111,401 131,246",
+  "M131,246 Q202,108 350,80",
 ];
 
 const LOOP_DURATION_S = 8;
@@ -85,13 +76,13 @@ export function Flywheel() {
         <div className="panel-title">How the loop reinforces itself</div>
         <p className="flywheel-intro">
           Unlike a casino, nobody leaves empty-handed — every card pays floor value in real stock, so even a "loss"
-          grows your portfolio. The free daily scratch brings you back, the streak makes leaving expensive, rare pulls
-          give the collection book meaning, and the growing stack gives you news to check even on days you don't buy.
+          grows your portfolio. The streak makes buying again worth it, rare pulls give the collection book meaning,
+          and the growing stack gives you news to check even on days you don't buy.
         </p>
 
         <div className="flywheel-diagram">
           <svg className="flywheel-svg" viewBox="0 0 700 640" role="img" aria-label="Flywheel diagram">
-            <title>SCRATCH flywheel: free daily scratch, streak compounds, buy cards, house pushes stock, portfolio and deck grow, wins get shared, back to the free daily scratch</title>
+            <title>SCRATCH flywheel: streak compounds, buy cards, house pushes stock, portfolio and deck grow, wins get shared, back to streak compounds</title>
             <defs>
               <marker id="flywheel-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="rgba(214, 221, 216, 0.55)" />
@@ -148,8 +139,8 @@ export function Flywheel() {
       <div className="panel">
         <div className="panel-title">Zero signatures by design</div>
         <p className="flywheel-intro">
-          The whole loop runs on one signature — the plain SIWE message that proves an address is yours. Everything
-          else is either read from the chain or pushed to you.
+          Nothing here ever asks you to sign a message, connect a wallet, or approve anything. Every step runs off
+          public purchase and payout events, read straight from the chain or pushed to you.
         </p>
         <div className="flywheel-patterns">
           <div className="flywheel-pattern">
@@ -169,17 +160,18 @@ export function Flywheel() {
             </p>
           </div>
           <div className="flywheel-pattern">
-            <div className="flywheel-pattern-icon">✍️</div>
-            <div className="flywheel-pattern-title">One signature, ever</div>
+            <div className="flywheel-pattern-icon">🔎</div>
+            <div className="flywheel-pattern-title">You tell the site, not the chain</div>
             <p>
-              The free daily scratch is the only thing the chain can't witness, so it's gated by your SIWE session — a
-              signed text message that moves nothing and can't approve anything.
+              Typing in your address just tells this page what to watch for — the same as looking yourself up on
+              Portfolio. Attribution itself comes from whichever address actually sends the ETH, not from anything
+              you type.
             </p>
           </div>
         </div>
         <p className="flywheel-fineprint">
-          Free scratches unlock only for addresses that have bought at least one card — the chain itself is the
-          anti-abuse system. No CAPTCHAs, no email signups.
+          There are no accounts to create and nothing to sign up for — any address can look itself up, any address
+          can buy. No CAPTCHAs, no email signups.
         </p>
       </div>
     </div>
