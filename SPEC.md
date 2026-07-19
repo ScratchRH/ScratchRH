@@ -46,14 +46,16 @@ Math notes:
 4. Player portfolio page: cumulative floor winnings shown as "you've scratched your way to $X of real stocks." Even losing players accumulate equity — this is the retention hook.
 5. Seasons: weekly themed decks (AI week pays floors in NVDA, ETF week in SPY, silver week in SLV). Scratched cards persist as collectible NFTs; set completion is a second progression track.
 
-## 3. Token ($SCRATCH) — decided: there IS a token
+## 3. Token ($SCRATCH) — decided: there IS a token, launched via Flap.sh
 
-Purpose: fee generation. Design it to reinforce longevity rather than fight it:
-- Trade tax (e.g. 3%) on the token, HOTPOT-style immutable split: suggested 50% → progressive jackpot / 25% → protocol / 25% → LP or buyback. Token volume feeds the jackpot, aligning holders with game growth.
-- A % of ticket rake market-buys $SCRATCH (value accrual from game volume → token).
-- Holder utility: hold threshold → 1 free Penny scratch/day; streak multipliers; early access to new decks. Utility = reasons to hold that aren't just price.
-- Tickets remain purchasable in ETH/USDG (don't force token purchase — normie funnel stays clean). Optional discount if paid in $SCRATCH (then burn or recycle those).
+Launches through the Flap.sh portal as a `TOKEN_TAXED_V3` clone (no custom ERC20 logic possible) — see `script/LaunchScratchToken.s.sol`. Flap's native dividend mechanism (shared Tax Token Helper contract) handles all holder distribution; nothing custom needs to be built for that.
+
+- **$SCRATCH's own trading tax split (decided 2026-07-19): 90% → dividend pool, paid automatically to $SCRATCH holders by Flap's infrastructure; 10% → ops.** This taxes $SCRATCH's own buy/sell volume — separate from the ticket rake below, do not conflate the two.
+- Ticket rake (10% of every card sale, a completely independent fee stream) flows through `RakeRouter.sol`: 50% stays ETH to ops, 50% market-buys $SCRATCH (`RakeRouter.sweep()`, permissionless). Value accrual from game volume → token, same intent as originally planned here, now implemented as a buyback rather than feeding the jackpot directly.
+- Tickets remain purchasable only in native ETH, no wallet-connect — token purchase is never required.
 - Keep prize assets as stock tokens, never $SCRATCH — prizes must feel real.
+
+(Superseded: an earlier version of this plan had $SCRATCH's tax feeding the jackpot directly via a custom 50/25/25 split, plus hold-based utility features and a USDG payment option. Dropped in favor of Flap's native dividend mechanism — simpler, and already live infrastructure on Robinhood Chain rather than something to build and audit from scratch. Tickets are also ETH-only now, not ETH/USDG — see `src/ScratchCore.sol`, which is also flat-multiplier rather than the percent-of-pool model §2 below still describes; that section is stale too and not fixed as part of this edit.)
 
 ## 4. Verified Robinhood Chain facts (fetched from official docs July 2026 — do not re-derive, but re-verify anything marked ⚠️)
 
