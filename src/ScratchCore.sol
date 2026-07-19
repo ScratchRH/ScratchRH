@@ -122,6 +122,7 @@ contract ScratchCore {
     event RolledOver(uint256 amount);
     event Withdrawn(address indexed owner, uint256 amount);
     event DailyCapUpdated(uint256 oldCap, uint256 newCap);
+    event PoolsFunded(uint256 instantAmount, uint256 jackpotAmount);
 
     error DailyCapReached();
     error TicketNotFound();
@@ -360,6 +361,20 @@ contract ScratchCore {
         if (msg.sender != owner) revert NotOwner();
         emit DailyCapUpdated(dailyCap, newCap);
         dailyCap = newCap;
+    }
+
+    /// Permissionless top-up straight into the prize pools, split 50/50 —
+    /// bypasses buy()/receive() entirely, so it can never be mistaken for a
+    /// ticket purchase or mint a phantom ticket. Intended source: $SCRATCH's
+    /// own Flap-native trading tax, routed here via TokenTaxRouter, but
+    /// anyone can call this — strictly beneficial to players, never a way
+    /// to extract value, so no access control is needed.
+    function fundPools() external payable {
+        uint256 instantShare = msg.value / 2;
+        uint256 jackpotShare = msg.value - instantShare; // avoids losing a wei to rounding
+        instantPool += instantShare;
+        jackpotPot += jackpotShare;
+        emit PoolsFunded(instantShare, jackpotShare);
     }
 
     /// Dead-game recovery: sweeps the full instant + jackpot balance to

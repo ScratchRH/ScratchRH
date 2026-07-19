@@ -264,6 +264,52 @@ contract ScratchCoreTest is Test {
         assertTrue(sawNone);
         assertTrue(sawWin);
     }
+
+    function test_fundPools_splitsFiftyFifty() public {
+        core.fundPools{value: 1 ether}();
+
+        assertEq(core.instantPool(), 0.5 ether);
+        assertEq(core.jackpotPot(), 0.5 ether);
+    }
+
+    function test_fundPools_isPermissionless() public {
+        vm.prank(address(0xCAFE));
+        core.fundPools{value: 1 ether}();
+
+        assertEq(core.instantPool(), 0.5 ether);
+    }
+
+    function test_fundPools_doesNotLoseAWeiToRoundingOnOddAmounts() public {
+        core.fundPools{value: 1 wei}();
+
+        assertEq(core.instantPool() + core.jackpotPot(), 1 wei);
+    }
+
+    function test_fundPools_emitsPoolsFundedEvent() public {
+        vm.expectEmit(false, false, false, true);
+        emit ScratchCore.PoolsFunded(0.5 ether, 0.5 ether);
+        core.fundPools{value: 1 ether}();
+    }
+
+    function test_fundPools_addsOnTopOfExistingTicketSaleContributions() public {
+        vm.prank(player);
+        core.buy{value: 0.005 ether}(ScratchCore.CardType.Classic);
+        uint256 instantBefore = core.instantPool();
+        uint256 jackpotBefore = core.jackpotPot();
+
+        core.fundPools{value: 1 ether}();
+
+        assertEq(core.instantPool(), instantBefore + 0.5 ether);
+        assertEq(core.jackpotPot(), jackpotBefore + 0.5 ether);
+    }
+
+    function test_fundPools_doesNotCreateATicketOrAffectNextTicketId() public {
+        uint256 nextIdBefore = core.nextTicketId();
+
+        core.fundPools{value: 0.005 ether}(); // exactly a Classic card's price, on purpose
+
+        assertEq(core.nextTicketId(), nextIdBefore); // no phantom ticket minted
+    }
 }
 
 contract ScratchCorePayoutTest is Test {

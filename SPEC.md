@@ -48,14 +48,15 @@ Math notes:
 
 ## 3. Token ($SCRATCH) — decided: there IS a token, launched via Flap.sh
 
-Launches through the Flap.sh portal as a `TOKEN_TAXED_V3` clone (no custom ERC20 logic possible) — see `script/LaunchScratchToken.s.sol`. Flap's native dividend mechanism (shared Tax Token Helper contract) handles all holder distribution; nothing custom needs to be built for that.
+Launches through the Flap.sh portal as a `TOKEN_TAXED_V3` clone (no custom ERC20 logic possible) — see `script/LaunchScratchToken.s.sol`. $SCRATCH holders get NONE of the trading tax (decided 2026-07-19, superseding an earlier 90%-to-holders plan) — Flap's native per-holder dividend mechanism is deliberately unused (`dividendBps=0`).
 
-- **$SCRATCH's own trading tax split (decided 2026-07-19): 90% → dividend pool, paid automatically to $SCRATCH holders by Flap's infrastructure; 10% → ops.** This taxes $SCRATCH's own buy/sell volume — separate from the ticket rake below, do not conflate the two.
+- **$SCRATCH's own trading tax split: 100% routes via `mktBps` to `TokenTaxRouter.sol` (a single fixed beneficiary, not per-holder), which then splits it 10% ops / 90% straight into ScratchCore's prize pools via `ScratchCore.fundPools()` — split 50/50 between `instantPool` and `jackpotPot` there.** This taxes $SCRATCH's own buy/sell volume — separate from the ticket rake below, do not conflate the two. Trading $SCRATCH literally funds the game; it does not pay its own holders.
 - Ticket rake (10% of every card sale, a completely independent fee stream) flows through `RakeRouter.sol`: 50% stays ETH to ops, 50% market-buys $SCRATCH (`RakeRouter.sweep()`, permissionless). Value accrual from game volume → token, same intent as originally planned here, now implemented as a buyback rather than feeding the jackpot directly.
+- `ScratchCore.fundPools()` is a dedicated payable function, separate from `buy()`/`receive()` — bypasses ticket-purchase logic entirely so an incoming tax payment can never be mistaken for (or accidentally mint) a ticket. Permissionless; anyone can top up the prize pools, which is strictly beneficial to players.
 - Tickets remain purchasable only in native ETH, no wallet-connect — token purchase is never required.
 - Keep prize assets as stock tokens, never $SCRATCH — prizes must feel real.
 
-(Superseded: an earlier version of this plan had $SCRATCH's tax feeding the jackpot directly via a custom 50/25/25 split, plus hold-based utility features and a USDG payment option. Dropped in favor of Flap's native dividend mechanism — simpler, and already live infrastructure on Robinhood Chain rather than something to build and audit from scratch. Tickets are also ETH-only now, not ETH/USDG — see `src/ScratchCore.sol`, which is also flat-multiplier rather than the percent-of-pool model §2 below still describes; that section is stale too and not fixed as part of this edit.)
+(Superseded twice now: the original plan had $SCRATCH's tax feeding the jackpot directly via a custom 50/25/25 split, plus hold-based utility features and a USDG payment option — dropped for Flap's native dividend mechanism, simpler and already-live infrastructure. Then the 90%-to-holders dividend plan was itself dropped in favor of routing that revenue into the game's own prize pools instead, since the actual goal was never to reward passive holders — see conversation notes 2026-07-19. Tickets are also ETH-only now, not ETH/USDG — see `src/ScratchCore.sol`, which is also flat-multiplier rather than the percent-of-pool model §2 below still describes; that section is stale too and not fixed as part of this edit.)
 
 ## 4. Verified Robinhood Chain facts (fetched from official docs July 2026 — do not re-derive, but re-verify anything marked ⚠️)
 

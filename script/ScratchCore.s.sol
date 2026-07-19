@@ -5,14 +5,18 @@ import {Script} from "forge-std/Script.sol";
 import {ScratchCore} from "../src/ScratchCore.sol";
 import {Randomness} from "../src/Randomness.sol";
 import {UniswapV4PrizeConverter} from "../src/UniswapV4PrizeConverter.sol";
+import {TokenTaxRouter} from "../src/TokenTaxRouter.sol";
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 
-/// Deploys UniswapV4PrizeConverter -> Randomness -> ScratchCore in the one
-/// order that works: Randomness needs ScratchCore's address up front
-/// (immutable consumer), so it's predicted from the deployer's next nonce
-/// before ScratchCore exists — same trick test/ScratchCore.t.sol uses, with
-/// the same post-deploy assertion so this reverts loudly instead of
+/// Deploys UniswapV4PrizeConverter -> Randomness -> ScratchCore -> TokenTaxRouter
+/// in the one order that works: Randomness needs ScratchCore's address up
+/// front (immutable consumer), so it's predicted from the deployer's next
+/// nonce before ScratchCore exists — same trick test/ScratchCore.t.sol uses,
+/// with the same post-deploy assertion so this reverts loudly instead of
 /// silently deploying against a mismatched address if the nonce math drifts.
+/// TokenTaxRouter goes last since it just needs ScratchCore's (by-then-real)
+/// address — its own address is what LaunchScratchToken.s.sol's beneficiary
+/// needs filling in with, once this script has run.
 ///
 /// Addresses below are Robinhood Chain mainnet (chain id 4663), verified
 /// 2026-07-19 against live deployed bytecode (cast code) and, for the
@@ -35,6 +39,10 @@ contract DeployScratchCore is Script {
     address internal constant COIN = 0x6330D8C3178a418788dF01a47479c0ce7CCF450b;
     address internal constant PLTR = 0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A;
 
+    /// Same ops wallet as script/LaunchScratchToken.s.sol's OPS_ADDRESS —
+    /// one treasury address for every fee stream's ops share.
+    address internal constant OPS_ADDRESS = 0xD65EeE84C26A6f976Ebc4E76D984341799841d83;
+
     /// Also the keeper's address — same wallet holds both roles, a
     /// deliberate tradeoff the user accepted (2026-07-19): owner's
     /// sweep()/setDailyCap() powers and the keeper's 24/7 hot-wallet
@@ -54,7 +62,15 @@ contract DeployScratchCore is Script {
     /// Starting cap; owner-adjustable later via ScratchCore.setDailyCap().
     uint256 internal constant DAILY_CAP = 1000;
 
-    function run() external returns (UniswapV4PrizeConverter converter, Randomness randomness, ScratchCore core) {
+    function run()
+        external
+        returns (
+            UniswapV4PrizeConverter converter,
+            Randomness randomness,
+            ScratchCore core,
+            TokenTaxRouter taxRouter
+        )
+    {
         require(OWNER != address(0), "OWNER not set");
         require(RAKE_RECIPIENT != address(0), "RAKE_RECIPIENT not set");
         require(DAILY_CAP != 0, "DAILY_CAP not set");
@@ -78,6 +94,8 @@ contract DeployScratchCore is Script {
             OWNER
         );
         require(address(core) == predictedCore, "address prediction drifted");
+
+        taxRouter = new TokenTaxRouter(core, OPS_ADDRESS);
 
         vm.stopBroadcast();
     }

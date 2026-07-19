@@ -10,7 +10,7 @@ contract LaunchScratchTokenTest is Test {
     LaunchScratchToken script;
     MockFlapPortal mockPortal;
     address constant PORTAL = 0x26605f322f7fF986f381bB9A6e3f5DAb0bEaEb09;
-    address ops = makeAddr("ops");
+    address taxRouter = makeAddr("taxRouter");
 
     function setUp() public {
         vm.chainId(4663);
@@ -23,33 +23,32 @@ contract LaunchScratchTokenTest is Test {
 
     function defaultConfig() internal view returns (LaunchScratchToken.LaunchConfig memory) {
         return LaunchScratchToken.LaunchConfig({
-            ops: ops,
+            beneficiary: taxRouter,
             name: "SCRATCH",
             symbol: "SCRATCH",
             meta: "bafktest",
             taxBps: 300,
             taxDuration: 315_360_000,
             initialBuy: 0,
-            dividendBps: 9000,
-            mktBps: 1000,
+            dividendBps: 0,
+            mktBps: 10_000,
             minimumShareBalance: 0,
             salt: keccak256("seed")
         });
     }
 
-    function test_defaultSplit_dividendAndMktSumToDenominator() public {
+    function test_defaultSplit_allTaxRoutesToBeneficiaryNoneToHolders() public {
         address token = script.launch(defaultConfig());
         assertTrue(token != address(0));
 
         IFlapPortalLauncher.NewTokenV6Params memory p = MockFlapPortal(PORTAL).getLastParams();
 
-        assertEq(p.beneficiary, ops);
+        assertEq(p.beneficiary, taxRouter);
         assertEq(p.buyTaxRate, 300);
         assertEq(p.sellTaxRate, 300);
-        assertEq(p.mktBps, 1000);
-        assertEq(p.dividendBps, 9000);
+        assertEq(p.mktBps, 10_000);
+        assertEq(p.dividendBps, 0);
         assertEq(uint256(p.mktBps) + uint256(p.dividendBps), 10_000);
-        assertEq(p.dividendToken, address(0)); // native ETH dividends
         assertEq(p.tokenVersion, 6); // TOKEN_TAXED_V3
         assertEq(p.migratorType, 1); // V2 migrator (required for tax tokens)
         assertEq(p.quoteToken, address(0)); // native ETH quote
@@ -57,8 +56,8 @@ contract LaunchScratchTokenTest is Test {
 
     function test_customSplit_honorsOverrides() public {
         LaunchScratchToken.LaunchConfig memory cfg = defaultConfig();
-        cfg.dividendBps = 10_000;
-        cfg.mktBps = 0;
+        cfg.dividendBps = 5000;
+        cfg.mktBps = 5000;
         cfg.taxBps = 500;
 
         script.launch(cfg);
@@ -66,8 +65,8 @@ contract LaunchScratchTokenTest is Test {
         IFlapPortalLauncher.NewTokenV6Params memory p = MockFlapPortal(PORTAL).getLastParams();
         assertEq(p.buyTaxRate, 500);
         assertEq(p.sellTaxRate, 500);
-        assertEq(p.mktBps, 0);
-        assertEq(p.dividendBps, 10_000);
+        assertEq(p.mktBps, 5000);
+        assertEq(p.dividendBps, 5000);
     }
 
     function test_revertsIfSplitDoesNotSumToDenominator() public {
@@ -92,18 +91,13 @@ contract LaunchScratchTokenTest is Test {
         script.run();
     }
 
-    function test_run_readsEnvAndAppliesDefaults() public {
+    /// TOKEN_TAX_ROUTER is a hardcoded constant (address(0) until
+    /// script/ScratchCore.s.sol has actually deployed it) — run() must
+    /// refuse to launch against that placeholder rather than silently
+    /// routing 100% of the tax into a burn address.
+    function test_run_revertsWhenTokenTaxRouterNotSet() public {
         vm.setEnv("META_CID", "bafktest");
-
-        address token = script.run();
-        assertTrue(token != address(0));
-
-        IFlapPortalLauncher.NewTokenV6Params memory p = MockFlapPortal(PORTAL).getLastParams();
-        assertEq(p.beneficiary, 0xD65EeE84C26A6f976Ebc4E76D984341799841d83);
-        assertEq(p.buyTaxRate, 300);
-        assertEq(p.dividendBps, 9000);
-        assertEq(p.mktBps, 1000);
-        assertEq(p.name, "SCRATCH");
-        assertEq(p.symbol, "SCRATCH");
+        vm.expectRevert(bytes("TOKEN_TAX_ROUTER not set - deploy ScratchCore.s.sol first"));
+        script.run();
     }
 }
