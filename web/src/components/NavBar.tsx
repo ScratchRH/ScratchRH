@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { LogoMark } from "./LogoMark";
 import { XIcon } from "./XIcon";
 import { GitHubIcon } from "./GitHubIcon";
+import { SCRATCH_TOKEN_ADDRESS } from "../lib/chain";
+import { truncateAddress } from "../lib/format";
 
 const LINKS = [
   { to: "/scoreboard", label: "Scoreboard" },
@@ -12,6 +15,29 @@ const LINKS = [
   { to: "/docs", label: "Docs" },
   { to: "/flywheel", label: "Flywheel" },
 ];
+
+function CaBadge() {
+  const [copied, setCopied] = useState(false);
+
+  if (!SCRATCH_TOKEN_ADDRESS) return null;
+  const address = SCRATCH_TOKEN_ADDRESS;
+
+  return (
+    <button
+      type="button"
+      className="ca-badge"
+      title={address}
+      onClick={() => {
+        navigator.clipboard?.writeText(address);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      <span className="ca-badge-label">CA</span>
+      <span className="ca-badge-value">{copied ? "Copied!" : truncateAddress(address)}</span>
+    </button>
+  );
+}
 
 export function NavBar() {
   return (
@@ -33,6 +59,7 @@ export function NavBar() {
           ))}
         </nav>
         <div className="social-links">
+          <CaBadge />
           <a
             href="https://github.com/ScratchRH/ScratchRH"
             target="_blank"
