@@ -387,10 +387,22 @@ main {
   padding: 11px 4px;
   border-bottom: 2px dashed var(--border);
   font-size: 14px;
+  color: inherit;
+  text-decoration: none;
 }
 
 .feed-row:last-child {
   border-bottom: none;
+}
+
+a.feed-row {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+a.feed-row:hover {
+  background: var(--bg-panel-raised);
 }
 
 .feed-player {

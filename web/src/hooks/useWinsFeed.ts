@@ -18,6 +18,7 @@ export interface RawWinEntry {
   stockSymbol: string;
   amountWei: bigint;
   timestamp: number;
+  txHash: string;
 }
 
 export interface WinsFeedState {
@@ -119,6 +120,7 @@ export function useWinsFeed(): WinsFeedState {
               stockSymbol: symbolForStockToken(stockToken),
               amountWei,
               timestamp: await timestampFor(log.blockNumber!),
+              txHash: log.transactionHash!,
             });
           }
 

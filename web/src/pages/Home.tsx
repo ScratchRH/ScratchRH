@@ -86,6 +86,7 @@ export function Home() {
       amountUsd: Number(formatEther(entry.amountWei)) * ethUsdPrice,
       stockSymbol: entry.stockSymbol,
       timestamp: entry.timestamp,
+      txHash: entry.txHash,
     }));
   }, [winsFeed.entries, ethUsdPrice]);
 

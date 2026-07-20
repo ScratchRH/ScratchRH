@@ -16,6 +16,7 @@ export interface WinEntry {
   amountUsd: number;
   stockSymbol: string;
   timestamp: number;
+  txHash?: string; // unset for mock/demo-mode entries — only real chain data has one
 }
 
 export interface LeaderboardEntry {

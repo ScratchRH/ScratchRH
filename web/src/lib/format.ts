@@ -6,6 +6,10 @@ export function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+export function explorerTxUrl(txHash: string): string {
+  return `https://robinhoodchain.blockscout.com/tx/${txHash}`;
+}
+
 export function formatRelativeTime(timestampMs: number): string {
   const seconds = Math.max(0, Math.floor((Date.now() - timestampMs) / 1000));
   if (seconds < 60) return `${seconds}s ago`;
