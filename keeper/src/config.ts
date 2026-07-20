@@ -39,6 +39,23 @@ export const config = {
   // polling this often isn't wasteful the way it would be for a real tx.
   sweepIntervalMs: Number(process.env.SWEEP_INTERVAL_MS ?? 10_000),
 
+  // HTTP API serving the dashboard cache (game stats, live wins, leaderboard)
+  // to the web app — Railway routes its public domain to whatever this
+  // binds to. The web app used to scan the chain itself for all of this,
+  // which meant every first-time visitor sat through a full history scan
+  // before seeing anything; the keeper now does that scan once, continuously,
+  // server-side, and the web app just fetches the result.
+  port: Number(process.env.PORT ?? 3000),
+  dashboardCacheFile: process.env.DASHBOARD_CACHE_FILE ?? "./dashboard-cache.json",
+  dashboardScanIntervalMs: Number(process.env.DASHBOARD_SCAN_INTERVAL_MS ?? 15_000),
+  // Separate from logsChunkSize/logsChunkDelayMs above (tuned for the
+  // reveal-watcher's narrow BUY_LOOKBACK_BLOCKS catch-up) — this scan covers
+  // the entire history since deploy, so it wants the widest range your RPC
+  // provider actually allows. Defaults assume a provider without Alchemy's
+  // free-tier 10-block eth_getLogs cap; lower these if yours has one.
+  dashboardScanChunkBlocks: BigInt(process.env.DASHBOARD_SCAN_CHUNK_BLOCKS ?? "2000"),
+  dashboardScanChunkDelayMs: Number(process.env.DASHBOARD_SCAN_CHUNK_DELAY_MS ?? 100),
+
   x: {
     apiKey: process.env.X_API_KEY ?? "",
     apiSecret: process.env.X_API_SECRET ?? "",

@@ -18,28 +18,44 @@ export const boughtEvent = {
   ],
 } as const;
 
+export const scratchedEvent = {
+  type: "event",
+  name: "Scratched",
+  inputs: [
+    { name: "ticketId", type: "uint256", indexed: true },
+    { name: "tier", type: "uint8", indexed: false },
+    { name: "stockToken", type: "address", indexed: false },
+    { name: "payout", type: "uint256", indexed: false },
+  ],
+} as const;
+
+export const wonEvent = {
+  type: "event",
+  name: "Won",
+  inputs: [
+    { name: "ticketId", type: "uint256", indexed: true },
+    { name: "player", type: "address", indexed: true },
+    { name: "tier", type: "uint8", indexed: false },
+    { name: "payout", type: "uint256", indexed: false },
+  ],
+} as const;
+
+export const floorPaidEvent = {
+  type: "event",
+  name: "FloorPaid",
+  inputs: [
+    { name: "ticketId", type: "uint256", indexed: true },
+    { name: "player", type: "address", indexed: true },
+    { name: "amount", type: "uint256", indexed: false },
+    { name: "stockToken", type: "address", indexed: false },
+  ],
+} as const;
+
 export const scratchCoreAbi = [
   boughtEvent,
-  {
-    type: "event",
-    name: "Scratched",
-    inputs: [
-      { name: "ticketId", type: "uint256", indexed: true },
-      { name: "tier", type: "uint8", indexed: false },
-      { name: "stockToken", type: "address", indexed: false },
-      { name: "payout", type: "uint256", indexed: false },
-    ],
-  },
-  {
-    type: "event",
-    name: "Won",
-    inputs: [
-      { name: "ticketId", type: "uint256", indexed: true },
-      { name: "player", type: "address", indexed: true },
-      { name: "tier", type: "uint8", indexed: false },
-      { name: "payout", type: "uint256", indexed: false },
-    ],
-  },
+  scratchedEvent,
+  wonEvent,
+  floorPaidEvent,
   {
     type: "function",
     name: "scratch",
@@ -49,6 +65,48 @@ export const scratchCoreAbi = [
       { name: "tier", type: "uint8" },
       { name: "stockToken", type: "address" },
       { name: "payout", type: "uint256" },
+    ],
+  },
+  {
+    type: "function",
+    name: "dailyCap",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "cardsSoldToday",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "jackpotPot",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
+// WETH/USDG Uniswap V3 pool on Robinhood Chain mainnet — same pool and math
+// web/src/lib/ethPrice.ts uses, moved server-side so the dashboard cache can
+// compute USD values without the browser doing its own price read too.
+export const slot0Abi = [
+  {
+    type: "function",
+    name: "slot0",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "sqrtPriceX96", type: "uint160" },
+      { name: "tick", type: "int24" },
+      { name: "observationIndex", type: "uint16" },
+      { name: "observationCardinality", type: "uint16" },
+      { name: "observationCardinalityNext", type: "uint16" },
+      { name: "feeProtocol", type: "uint8" },
+      { name: "unlocked", type: "bool" },
     ],
   },
 ] as const;
