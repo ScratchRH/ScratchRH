@@ -148,34 +148,6 @@ export function Play() {
     <div className="stack">
       <h1 className="page-title">Pick a Card</h1>
 
-      {REAL_MODE && (
-        <div className="panel">
-          <div className="panel-title">Your address</div>
-          <form
-            className="address-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitAddress(addressInput);
-            }}
-          >
-            <input
-              className="address-input"
-              placeholder="0x... the address you'll pay from"
-              value={addressInput}
-              onChange={(e) => setAddressInput(e.target.value)}
-            />
-            <button className="btn" type="submit">
-              {watchedAddress ? "Update" : "Start"}
-            </button>
-          </form>
-          <p style={{ color: "var(--fg-dim)", fontSize: 13, fontWeight: 600, lineHeight: 1.5, margin: 0 }}>
-            Typing your address is purely so this page knows what to watch for — the same as looking yourself up on
-            Portfolio. It never authorizes anything and isn't required for the payment itself to work; attribution
-            comes from whichever address actually sends the ETH, on-chain.
-          </p>
-        </div>
-      )}
-
       <div className="panel">
         <div className="panel-title">Choose a card</div>
         <div className="card-picker">
@@ -199,6 +171,34 @@ export function Play() {
 
       <div className="panel">
         <div className="panel-title">{selectedConfig.type} Card</div>
+
+        {REAL_MODE && (
+          <div className="stack" style={{ gap: 8, marginBottom: 16 }}>
+            <form
+              className="address-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitAddress(addressInput);
+              }}
+            >
+              <input
+                className="address-input"
+                placeholder="0x... the address you'll pay from"
+                value={addressInput}
+                onChange={(e) => setAddressInput(e.target.value)}
+              />
+              <button className="btn" type="submit">
+                {watchedAddress ? "Update" : "Start"}
+              </button>
+            </form>
+            <p style={{ color: "var(--fg-dim)", fontSize: 13, fontWeight: 600, lineHeight: 1.5, margin: 0 }}>
+              Typing your address is purely so this page knows what to watch for — the same as looking yourself up
+              on Portfolio. It never authorizes anything and isn't required for the payment itself to work;
+              attribution comes from whichever address actually sends the ETH, on-chain.
+            </p>
+          </div>
+        )}
+
         <div className="pack-details">
           <div className="pack-details-stats">
             <div>
@@ -237,23 +237,7 @@ export function Play() {
                 </button>
               </div>
             ) : (
-              <form
-                className="address-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submitAddress(addressInput);
-                }}
-              >
-                <input
-                  className="address-input"
-                  placeholder="0x... the address you'll pay from"
-                  value={addressInput}
-                  onChange={(e) => setAddressInput(e.target.value)}
-                />
-                <button className="btn" type="submit">
-                  Start
-                </button>
-              </form>
+              <div className="empty-state">Enter your address above to see payment instructions.</div>
             )
           ) : (
             <button className="btn" onClick={buy}>

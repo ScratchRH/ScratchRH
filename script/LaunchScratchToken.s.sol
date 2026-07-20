@@ -72,9 +72,12 @@ contract LaunchScratchToken is Script {
     ///      requires for tax tokens (Robinhood Chain Integration Guide).
     address public constant TOKEN_IMPL_TAXED_V3 = 0x7777C8743C88B3aff3cf262135beF2c8b2e83333;
 
-    /// TODO: fill in with the real TokenTaxRouter address once
-    /// script/ScratchCore.s.sol has deployed it.
-    address constant TOKEN_TAX_ROUTER = address(0);
+    /// Real TokenTaxRouter from the current ScratchCore deploy (redeployed
+    /// 2026-07-20 for REVEAL_DELAY=1 + repricing) — fingerprint-verified via
+    /// Randomness.consumer() pointing back at that ScratchCore. Update this
+    /// alongside script/ScratchCore.s.sol's address table in Docs.tsx if
+    /// ScratchCore ever gets redeployed again before this script runs.
+    address constant TOKEN_TAX_ROUTER = 0x760F117668011C05c7A073e4F8FE0dcE660bE8dA;
 
     uint256 constant EXPECTED_CHAIN_ID = 4663;
 

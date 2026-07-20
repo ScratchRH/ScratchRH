@@ -101,12 +101,6 @@ contract LaunchScratchTokenTest is Test {
     /// script/ScratchCore.s.sol has actually deployed it) — run() must
     /// refuse to launch against that placeholder rather than silently
     /// routing 100% of the tax into a burn address.
-    function test_run_revertsWhenTokenTaxRouterNotSet() public {
-        vm.setEnv("META_CID", "bafktest");
-        vm.expectRevert(bytes("TOKEN_TAX_ROUTER not set - deploy ScratchCore.s.sol first"));
-        script.run();
-    }
-
     /// Proves the on-chain vanity salt search actually produces a salt
     /// whose predicted CREATE2 address ends in the `7777` suffix Portal
     /// requires for tax tokens — not just that the loop compiles.
