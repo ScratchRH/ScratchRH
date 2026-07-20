@@ -154,6 +154,7 @@ export function Docs() {
             <div className="docs-address-row"><span>PrizeConverter</span><code className="docs-code docs-addr">0x51f15eEa8Ac4DAbf0D39ca01958dCf079869F20D</code></div>
             <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">0x7a963D699427D80a582B3b0391DeA2C8d1D6EF45</code></div>
             <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">0x760F117668011C05c7A073e4F8FE0dcE660bE8dA</code></div>
+            <div className="docs-address-row"><span>$SCRATCH</span><code className="docs-code docs-addr">0xD4a5B5f35607AAeEE619c15ac00D1193D9EF7777</code></div>
           </div>
         </div>
 
