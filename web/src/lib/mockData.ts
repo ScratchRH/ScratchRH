@@ -184,9 +184,7 @@ export const SAMPLE_PORTFOLIOS: Record<string, PlayerPortfolio> = {
     address: "0xcafe...beef",
     totalFloorWonUsd: 412,
     totalInstantWonUsd: 88,
-    streak: 29,
     cardsScratched: 188,
-    jackpotsHit: 0,
     holdings: [
       { symbol: "SPY", amountUsd: 320 },
       { symbol: "NVDA", amountUsd: 110 },

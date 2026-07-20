@@ -35,9 +35,7 @@ export interface PlayerPortfolio {
   address: string;
   totalFloorWonUsd: number;
   totalInstantWonUsd: number;
-  streak: number;
   cardsScratched: number;
-  jackpotsHit: number;
   holdings: Holding[];
   history: WinEntry[];
 }
