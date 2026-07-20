@@ -48,8 +48,32 @@ async function fetchEthUsdPrice(): Promise<number> {
 // Flywheel.tsx on navigation, and without this every single visit to those
 // pages would flash back to "undefined" and block on a fresh RPC round
 // trip before showing anything, even seconds after the last visit already
-// had a perfectly good price.
-let cachedPrice: number | undefined;
+// had a perfectly good price. Also persisted to localStorage: module state
+// alone only survives navigation within the same page load — a fresh visit
+// (first load, hard refresh, link from X) gets a brand-new JS module with
+// nothing cached, which is what was actually causing the "loads in front of
+// you" complaint. Reading a few-minutes-stale price from localStorage first
+// and refreshing in the background beats showing nothing while waiting.
+const STORAGE_KEY = "scratch:ethUsdPrice";
+
+function readStoredPrice(): number | undefined {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? Number(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function storePrice(price: number): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(price));
+  } catch {
+    // localStorage unavailable (private browsing, storage full, etc.) - just skip persisting.
+  }
+}
+
+let cachedPrice: number | undefined = readStoredPrice();
 
 /// Live ETH/USD spot price, refreshed every 60s. undefined until the first
 /// successful read this session; returns the last known price immediately
@@ -64,6 +88,7 @@ export function useEthUsdPrice(): number | undefined {
       try {
         const next = await fetchEthUsdPrice();
         cachedPrice = next;
+        storePrice(next);
         if (!cancelled) setPrice(next);
       } catch (err) {
         console.error("[ethPrice] failed to fetch ETH/USD price:", err);

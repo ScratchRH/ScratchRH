@@ -41,10 +41,59 @@ const scratchedEvent = scratchCoreAbi.find((e) => e.type === "event" && e.name =
 // visit had already scanned all of it. Module scope survives unmounts for
 // the life of the page load, so a remount resumes from lastScannedBlock
 // instead of starting over.
-let cachedState: WinsFeedState = { totalPaidOutWei: 0n, entries: [] };
-let lastScannedBlock: bigint | null = null;
+//
+// Also persisted to localStorage — module state alone still resets on a
+// fresh page load (first visit, hard refresh, a link from X), which is what
+// was actually causing the "loads in front of you" complaint: totalPaidOut
+// and the wins list only exist after a full re-scan from
+// SCRATCH_CORE_DEPLOY_BLOCK completes. Persisting lastScannedBlock alongside
+// the display data means a fresh load shows a few-seconds-stale feed
+// immediately AND only has to scan forward from where the last visit left
+// off, not from the deploy block again — faster to catch up, not just
+// faster to display.
+const STORAGE_KEY = "scratch:winsFeed";
+
+interface StoredWinsFeed {
+  totalPaidOutWei: string;
+  entries: (Omit<RawWinEntry, "amountWei"> & { amountWei: string })[];
+  lastScannedBlock: string;
+}
+
+function readStored(): { state: WinsFeedState; lastScannedBlock: bigint } | undefined {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as StoredWinsFeed;
+    return {
+      state: {
+        totalPaidOutWei: BigInt(parsed.totalPaidOutWei),
+        entries: parsed.entries.map((e) => ({ ...e, amountWei: BigInt(e.amountWei) })),
+      },
+      lastScannedBlock: BigInt(parsed.lastScannedBlock),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function storeState(state: WinsFeedState, lastScannedBlock: bigint): void {
+  try {
+    const payload: StoredWinsFeed = {
+      totalPaidOutWei: state.totalPaidOutWei.toString(),
+      entries: state.entries.map((e) => ({ ...e, amountWei: e.amountWei.toString() })),
+      lastScannedBlock: lastScannedBlock.toString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // localStorage unavailable (private browsing, storage full, etc.) - just skip persisting.
+  }
+}
+
+const stored = readStored();
+let cachedState: WinsFeedState = stored?.state ?? { totalPaidOutWei: 0n, entries: [] };
+let lastScannedBlock: bigint | null = stored?.lastScannedBlock ?? null;
 const blockTimestampCache = new Map<bigint, number>();
-const seenEntryIds = new Set<string>();
+const seenEntryIds = new Set<string>(stored?.state.entries.map((e) => e.id));
 // Guards against two scan() calls running at once — e.g. a scan that takes
 // longer than POLL_INTERVAL_MS to finish (setInterval doesn't wait for its
 // async callback), or two mounts sharing this module-level state. Without
@@ -157,6 +206,11 @@ export function useWinsFeed(): WinsFeedState {
         }
 
         lastScannedBlock = chunkEnd;
+        // Persisted every chunk, not just when entries were found, so
+        // lastScannedBlock keeps advancing in storage through long stretches
+        // of empty chunks too — otherwise a fresh load would re-scan blocks
+        // already confirmed empty, not just the ones with real events.
+        storeState(cachedState, lastScannedBlock);
         chunkStart = chunkEnd + 1n;
       }
     }
