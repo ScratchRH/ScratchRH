@@ -172,11 +172,11 @@ export function generateMockWins(count: number): WinEntry[] {
 }
 
 export const LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, player: "0x8f3a...92c1", streak: 47, cardsScratched: 312, totalWonUsd: 1840 },
-  { rank: 2, player: "0x1b7e...4f0a", streak: 33, cardsScratched: 201, totalWonUsd: 1120 },
-  { rank: 3, player: "0xcafe...beef", streak: 29, cardsScratched: 188, totalWonUsd: 940 },
-  { rank: 4, player: "0x4d2c...77aa", streak: 21, cardsScratched: 156, totalWonUsd: 705 },
-  { rank: 5, player: "0x9e01...33dd", streak: 18, cardsScratched: 140, totalWonUsd: 610 },
+  { rank: 1, player: "0x8f3a...92c1", cardsScratched: 312, totalWonUsd: 1840 },
+  { rank: 2, player: "0x1b7e...4f0a", cardsScratched: 201, totalWonUsd: 1120 },
+  { rank: 3, player: "0xcafe...beef", cardsScratched: 188, totalWonUsd: 940 },
+  { rank: 4, player: "0x4d2c...77aa", cardsScratched: 156, totalWonUsd: 705 },
+  { rank: 5, player: "0x9e01...33dd", cardsScratched: 140, totalWonUsd: 610 },
 ];
 
 export const SAMPLE_PORTFOLIOS: Record<string, PlayerPortfolio> = {

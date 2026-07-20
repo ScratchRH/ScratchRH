@@ -22,7 +22,6 @@ export interface WinEntry {
 export interface LeaderboardEntry {
   rank: number;
   player: string;
-  streak: number;
   cardsScratched: number;
   totalWonUsd: number;
 }
