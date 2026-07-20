@@ -53,6 +53,19 @@ export const scratchCoreAbi = [
   },
 ] as const;
 
+export const tokenTaxRouterAbi = [
+  {
+    type: "function",
+    name: "sweep",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [
+      { name: "opsAmount", type: "uint256" },
+      { name: "poolsAmount", type: "uint256" },
+    ],
+  },
+] as const;
+
 // requestId here is always a ticketId — ScratchCore calls
 // randomness.request(ticketId) using the ticket's own id as the request id.
 export const randomnessAbi = [

@@ -12,6 +12,10 @@ export const config = {
   keeperPrivateKey: required("KEEPER_PRIVATE_KEY") as `0x${string}`,
   scratchCoreAddress: required("SCRATCH_CORE_ADDRESS") as `0x${string}`,
   randomnessAddress: required("RANDOMNESS_ADDRESS") as `0x${string}`,
+  // Optional: unset until $SCRATCH actually launches (script/LaunchScratchToken.s.sol).
+  // Sweeping is skipped entirely while this is unset, so deploying this code
+  // ahead of launch is a no-op rather than a crash.
+  tokenTaxRouterAddress: (process.env.TOKEN_TAX_ROUTER_ADDRESS || undefined) as `0x${string}` | undefined,
 
   pollIntervalMs: Number(process.env.POLL_INTERVAL_MS ?? 2000),
   stateFile: process.env.STATE_FILE ?? "./keeper-state.json",
@@ -26,6 +30,12 @@ export const config = {
   // limit too.
   logsChunkSize: BigInt(process.env.LOGS_CHUNK_SIZE ?? "10"),
   logsChunkDelayMs: Number(process.env.LOGS_CHUNK_DELAY_MS ?? 150),
+
+  // How often to check TokenTaxRouter's balance and sweep() it if nonzero.
+  // Trading tax isn't time-sensitive the way reveals are, so this runs far
+  // less often than pollIntervalMs — no reason to hammer the RPC checking a
+  // balance that only moves when someone trades $SCRATCH.
+  sweepIntervalMs: Number(process.env.SWEEP_INTERVAL_MS ?? 300_000),
 
   x: {
     apiKey: process.env.X_API_KEY ?? "",

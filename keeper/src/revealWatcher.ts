@@ -4,6 +4,7 @@ import { publicClient, walletClient } from "./chain.js";
 import { scratchCoreAbi, boughtEvent, randomnessAbi } from "./abi.js";
 import { loadState, saveState, type KeeperState } from "./state.js";
 import { maybePostWin } from "./socialBot.js";
+import { maybeSweep } from "./taxSweeper.js";
 
 const TIER_JACKPOT = 5;
 
@@ -187,11 +188,17 @@ export async function runOnce(state: KeeperState): Promise<KeeperState> {
 
 export async function runForever(): Promise<void> {
   let state = await initState();
+  let lastSweepCheckAt = 0;
   for (;;) {
     try {
       state = await runOnce(state);
     } catch (err) {
       console.error("[reveal-watcher] iteration failed:", err);
+    }
+    try {
+      lastSweepCheckAt = await maybeSweep(lastSweepCheckAt);
+    } catch (err) {
+      console.error("[tax-sweeper] iteration failed:", err);
     }
     await new Promise((resolve) => setTimeout(resolve, config.pollIntervalMs));
   }
