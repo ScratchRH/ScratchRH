@@ -1,5 +1,7 @@
+import { formatUnits } from "viem";
 import { FundSplitBar } from "../components/FundSplitBar";
 import { TOKEN_TAX_SPLIT } from "../lib/mockData";
+import { useBurnStats } from "../hooks/useBurnStats";
 
 interface FlywheelNode {
   id: string;
@@ -69,6 +71,8 @@ const ARROW_SEGMENTS = [
 const LOOP_DURATION_S = 8;
 
 export function Flywheel() {
+  const burnStats = useBurnStats();
+
   return (
     <div className="stack">
       <h1 className="page-title">The Flywheel</h1>
@@ -148,6 +152,12 @@ export function Flywheel() {
             shrinks the token's own supply, instead of paying passive holders.
           </p>
           <FundSplitBar segments={TOKEN_TAX_SPLIT} />
+          {burnStats && (
+            <div className="holding-row" style={{ marginTop: 12 }}>
+              <span>$SCRATCH burned so far</span>
+              <span>{Math.floor(Number(formatUnits(burnStats.totalBurnedRaw, burnStats.decimals))).toLocaleString()}</span>
+            </div>
+          )}
         </div>
       </div>
 

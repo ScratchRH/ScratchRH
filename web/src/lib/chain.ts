@@ -20,6 +20,15 @@ export const SCRATCH_CORE_ADDRESS = import.meta.env.VITE_SCRATCH_CORE_ADDRESS as
 // not a correctness bug, but keeping it close keeps that scan fast.
 export const SCRATCH_CORE_DEPLOY_BLOCK = 14_794_301n;
 
+// $SCRATCH itself — unset until script/LaunchScratchToken.s.sol actually
+// runs, unlike SCRATCH_CORE_DEPLOY_BLOCK above there's no way to know this
+// ahead of time, so both come from env rather than one being hardcoded.
+// Fill both in once the token exists; Flywheel's burn stat stays hidden
+// until then.
+export const SCRATCH_TOKEN_ADDRESS = import.meta.env.VITE_SCRATCH_TOKEN_ADDRESS as `0x${string}` | undefined;
+const rawTokenDeployBlock = import.meta.env.VITE_SCRATCH_TOKEN_DEPLOY_BLOCK as string | undefined;
+export const SCRATCH_TOKEN_DEPLOY_BLOCK = rawTokenDeployBlock ? BigInt(rawTokenDeployBlock) : undefined;
+
 export const robinhoodChain = defineChain({
   id: CHAIN_ID,
   name: "Robinhood Chain",
