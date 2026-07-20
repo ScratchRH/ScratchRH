@@ -102,6 +102,17 @@ export function Home() {
       : formatUsd(Number(formatEther(scoreboard.instantPoolWei)) * scoreboard.ethUsdPrice)
     : formatUsd(mockInstantPoolUsd);
 
+  // Jackpot + instant pool combined — both already sum across every live
+  // ScratchCore (main + Whale) via the keeper's dashboard-cache, so this is
+  // genuinely "everything currently up for grabs," not just the main game's cut.
+  const combinedPoolLabel = REAL_MODE
+    ? scoreboard?.instantPoolWei === undefined || scoreboard?.jackpotPotWei === undefined || scoreboard.ethUsdPrice === undefined
+      ? "…"
+      : formatUsd(
+          (Number(formatEther(scoreboard.instantPoolWei)) + Number(formatEther(scoreboard.jackpotPotWei))) * scoreboard.ethUsdPrice,
+        )
+    : formatUsd(mockInstantPoolUsd + mockJackpotUsd);
+
   const totalPaidOutLabel = REAL_MODE
     ? !scoreboard || scoreboard.ethUsdPrice === undefined
       ? "…"
@@ -133,6 +144,7 @@ export function Home() {
           sub="Cumulative floor + instant + jackpot"
           accent
         />
+        <StatTile label="Total Prize Pool" value={combinedPoolLabel} sub="Instant pool + jackpot, combined" accent />
         <StatTile label="Instant Pool" value={instantPoolLabel} sub="Funds the 1x-10x instant-win tiers" accent />
         <StatTile
           label="Cards Remaining Today"
