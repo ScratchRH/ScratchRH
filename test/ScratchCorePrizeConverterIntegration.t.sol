@@ -4,31 +4,37 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Randomness} from "../src/Randomness.sol";
 import {ScratchCore} from "../src/ScratchCore.sol";
-import {UniswapV4PrizeConverter} from "../src/UniswapV4PrizeConverter.sol";
+import {PrizeConverter} from "../src/PrizeConverter.sol";
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {IHooks} from "v4-core/interfaces/IHooks.sol";
-import {PoolKey} from "v4-core/types/PoolKey.sol";
-import {Currency} from "v4-core/types/Currency.sol";
+import {IWETH} from "../src/interfaces/IWETH.sol";
 import {MockPoolManager} from "./mocks/MockPoolManager.sol";
+import {MockWETH} from "./mocks/MockWETH.sol";
+import {MockAlgebraPool} from "./mocks/MockAlgebraPool.sol";
 import {MockStockToken} from "./mocks/MockStockToken.sol";
 
 /// Every test in ScratchCore.t.sol wires ScratchCore up with
 /// MockPrizeConverter — a trivial 1:1 mint-on-demand stub — never the real
-/// UniswapV4PrizeConverter. That leaves the actual thing a player
-/// experiences (buy -> scratch -> real v4 swap -> stock lands in their
-/// wallet) completely unexercised as one path: the payment intake and the
-/// v4 swap mechanics were each proven correct in isolation, but never
-/// together. This file closes that gap, including the failure mode
-/// (scratch() reverting mid-payout) that ScratchCore.t.sol's mock can't
-/// produce at all, since MockPrizeConverter never fails.
-contract ScratchCoreUniswapV4IntegrationTest is Test {
-    // Same price = 1 reference used in the converter's own tests.
+/// PrizeConverter. That leaves the actual thing a player experiences (buy ->
+/// scratch -> real swap -> stock lands in their wallet) completely
+/// unexercised as one path: the payment intake and the swap mechanics were
+/// each proven correct in isolation (ScratchCore.t.sol, PrizeConverter.t.sol
+/// respectively), but never together. This file closes that gap, including
+/// the failure mode (scratch() reverting mid-payout) that ScratchCore.t.sol's
+/// mock can't produce at all, since MockPrizeConverter never fails.
+///
+/// Uses a single Algebra hop (the SPY/PLTR real-route shape) rather than the
+/// full WETH->USDG->stock chain every real route on Robinhood Chain actually
+/// uses — PrizeConverter.t.sol already covers the multi-hop mechanics in
+/// isolation; what's missing and worth proving here is specifically that
+/// ScratchCore drives PrizeConverter correctly end-to-end, which doesn't
+/// depend on how many hops the configured route happens to have.
+contract ScratchCorePrizeConverterIntegrationTest is Test {
     uint160 internal constant SQRT_PRICE_1_1 = 79228162514264337593543950336;
-    uint24 internal constant FEE = 3000;
-    int24 internal constant TICK_SPACING = 60;
 
     MockPoolManager internal poolManager;
-    UniswapV4PrizeConverter internal converter;
+    MockWETH internal weth;
+    PrizeConverter internal converter;
+    MockAlgebraPool internal algebraPool;
     MockStockToken internal spy;
     Randomness internal randomness;
     ScratchCore internal core;
@@ -39,12 +45,24 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
 
     function setUp() public {
         poolManager = new MockPoolManager();
+        weth = new MockWETH();
         spy = new MockStockToken("Mock SPY", "mSPY");
 
-        converter = new UniswapV4PrizeConverter(IPoolManager(address(poolManager)), owner);
+        converter = new PrizeConverter(IPoolManager(address(poolManager)), IWETH(address(weth)), owner);
+        algebraPool = new MockAlgebraPool(address(weth), address(spy));
+        algebraPool.setPrice(SQRT_PRICE_1_1);
+
+        PrizeConverter.Hop[] memory hops = new PrizeConverter.Hop[](1);
+        hops[0] = PrizeConverter.Hop({
+            protocol: PrizeConverter.Protocol.Algebra,
+            pool: address(algebraPool),
+            tokenOut: address(spy),
+            fee: 0,
+            tickSpacing: 0,
+            hooks: address(0)
+        });
         vm.prank(owner);
-        converter.setPoolConfig(address(spy), FEE, TICK_SPACING, address(0));
-        poolManager.setPoolPrice(_poolKey(), SQRT_PRICE_1_1);
+        converter.setRoute(address(spy), hops);
 
         ScratchCore.DeckEntry[] memory deck = new ScratchCore.DeckEntry[](1);
         deck[0] = ScratchCore.DeckEntry({token: address(spy), weightBps: 10_000});
@@ -64,18 +82,7 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
         cfg[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2}); // Premium
     }
 
-    function _poolKey() internal view returns (PoolKey memory) {
-        // address(0) (ETH) sorts below any real token address.
-        return PoolKey({
-            currency0: Currency.wrap(address(0)),
-            currency1: Currency.wrap(address(spy)),
-            fee: FEE,
-            tickSpacing: TICK_SPACING,
-            hooks: IHooks(address(0))
-        });
-    }
-
-    function test_buyAndScratch_paysRealStockThroughTheActualV4SwapPath() public {
+    function test_buyAndScratch_paysRealStockThroughTheActualSwapPath() public {
         vm.prank(player);
         uint256 ticketId = core.buy{value: 0.005 ether}(ScratchCore.CardType.Classic);
 
@@ -86,8 +93,8 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
         // is only set on a win — floor-only stays 0 by design, matching
         // ScratchCore.t.sol's own test_scratch_paysExactlyOneOfFloorOrWinPayout),
         // but either way *some* real stock — delivered by the real
-        // unlock/swap/settle/take sequence, not a mock mint — must have
-        // landed in the player's wallet.
+        // wrap/swap/settle sequence, not a mock mint — must have landed in
+        // the player's wallet.
         assertEq(stockToken, address(spy));
         assertGt(spy.balanceOf(player), 0);
         if (tier != ScratchCore.Tier.None) assertGt(payout, 0);
@@ -102,9 +109,9 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
         // pool or a same-block sandwich, exactly the scenario it exists to
         // catch. The revert must come from inside the real converter, not
         // a test-only shortcut.
-        poolManager.setForcePartialFill(true, 0.0001 ether);
+        algebraPool.setForcedAmountOut(true, 0.0001 ether);
 
-        vm.expectRevert(UniswapV4PrizeConverter.SlippageExceeded.selector);
+        vm.expectRevert(PrizeConverter.SlippageExceeded.selector);
         core.scratch(ticketId);
 
         // The whole scratch() transaction must have rolled back — not just
@@ -115,7 +122,7 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
 
         // Once the pool can fill normally again, the same ticket resolves
         // on retry — proving the failure didn't strand it.
-        poolManager.setForcePartialFill(false, 0);
+        algebraPool.setForcedAmountOut(false, 0);
         (ScratchCore.Tier tier, address stockToken, uint256 payout) = core.scratch(ticketId);
 
         assertEq(stockToken, address(spy));
@@ -125,7 +132,7 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
         assertTrue(scratchedAfterRetry);
     }
 
-    function test_scratch_revertsWhenStockTokenHasNoPoolConfigured() public {
+    function test_scratch_revertsWhenStockTokenHasNoRouteConfigured() public {
         MockStockToken unlisted = new MockStockToken("Mock Unlisted", "mUNL");
         ScratchCore.DeckEntry[] memory deck = new ScratchCore.DeckEntry[](1);
         deck[0] = ScratchCore.DeckEntry({token: address(unlisted), weightBps: 10_000});
@@ -141,9 +148,7 @@ contract ScratchCoreUniswapV4IntegrationTest is Test {
         uint256 ticketId = core2.buy{value: 0.005 ether}(ScratchCore.CardType.Classic);
         vm.roll(block.number + randomness2.REVEAL_DELAY() + 1);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(UniswapV4PrizeConverter.PoolNotConfigured.selector, address(unlisted))
-        );
+        vm.expectRevert(abi.encodeWithSelector(PrizeConverter.RouteNotConfigured.selector, address(unlisted)));
         core2.scratch(ticketId);
     }
 }

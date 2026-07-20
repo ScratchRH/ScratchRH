@@ -106,7 +106,7 @@ export function Docs() {
           <p className="docs-p">
             Which stock your card pays out in isn't known until scratch time. The same random value that resolves
             your prize tier also draws a stock from that season's deck. The deck is weighted: SPY is the most
-            common pull (70%), with AAPL and MSFT next, down to rarer names like PLTR and COIN.
+            common pull (71%), with AAPL and MSFT next, down to a rarer name like PLTR.
             The jackpot always settles in SPY.
           </p>
         </div>
@@ -150,10 +150,10 @@ export function Docs() {
           </p>
           <p className="docs-p">Contract addresses (Robinhood Chain, chain ID 4663):</p>
           <div className="docs-addresses">
-            <div className="docs-address-row"><span>ScratchCore</span><code className="docs-code docs-addr">deploy pending</code></div>
-            <div className="docs-address-row"><span>UniswapV4PrizeConverter</span><code className="docs-code docs-addr">deploy pending</code></div>
-            <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">deploy pending</code></div>
-            <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">deploy pending</code></div>
+            <div className="docs-address-row"><span>ScratchCore</span><code className="docs-code docs-addr">0x0b2d05f1E9bd5A09eFdA824Cc556A42B1F0E05aA</code></div>
+            <div className="docs-address-row"><span>PrizeConverter</span><code className="docs-code docs-addr">0x51f15eEa8Ac4DAbf0D39ca01958dCf079869F20D</code></div>
+            <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">0xF2D100b04e3CE8B74fa48eb202d3d4F7e812E2f2</code></div>
+            <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">0x372b0a558816Eb0dD521b2C2Fc78018a61663a64</code></div>
             <div className="docs-address-row"><span>RakeRouter</span><code className="docs-code docs-addr">deploy pending</code></div>
           </div>
         </div>

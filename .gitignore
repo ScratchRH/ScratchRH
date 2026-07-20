@@ -25,3 +25,4 @@ dist-ssr/
 
 # Claude Code session worktrees (not project source)
 .claude/worktrees/
+.vercel

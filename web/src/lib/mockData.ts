@@ -42,13 +42,16 @@ interface DeckEntry {
   chase?: boolean;
 }
 
+// COIN is deliberately excluded (2026-07-19: no real liquidity pool on this
+// chain yet); its 100bps rolls into SPY rather than being redistributed
+// across the remaining tokens, since SPY already has the deepest liquidity
+// and is the jackpot-settlement token.
 export const MYSTERY_DECK: DeckEntry[] = [
-  { symbol: "SPY", weightBps: 7_000 },
+  { symbol: "SPY", weightBps: 7_100 },
   { symbol: "AAPL", weightBps: 1_000 },
   { symbol: "MSFT", weightBps: 1_000 },
   { symbol: "NVDA", weightBps: 600 },
   { symbol: "TSLA", weightBps: 250, chase: true },
-  { symbol: "COIN", weightBps: 100, chase: true },
   { symbol: "PLTR", weightBps: 50, chase: true },
 ];
 
