@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { publicClient, SCRATCH_CORE_ADDRESS, SCRATCH_CORE_DEPLOY_BLOCK } from "../lib/chain";
 import { scratchCoreAbi } from "../lib/scratchCoreAbi";
 import { symbolForStockToken, tierFromOnchain } from "../lib/onchain";
@@ -32,6 +32,18 @@ const wonEvent = scratchCoreAbi.find((e) => e.type === "event" && e.name === "Wo
 // logs in the same range fills that in for Won-based entries.
 const scratchedEvent = scratchCoreAbi.find((e) => e.type === "event" && e.name === "Scratched")!;
 
+// Module-level, not component/ref state — Home.tsx unmounts on navigation
+// (react-router), and a useRef/useState pair resets on every remount just
+// like a class instance would. Without this, revisiting the Scoreboard page
+// re-scanned the entire history from SCRATCH_CORE_DEPLOY_BLOCK every single
+// time and showed an empty feed while it did, even moments after the last
+// visit had already scanned all of it. Module scope survives unmounts for
+// the life of the page load, so a remount resumes from lastScannedBlock
+// instead of starting over.
+let cachedState: WinsFeedState = { totalPaidOutWei: 0n, entries: [] };
+let lastScannedBlock: bigint | null = null;
+const blockTimestampCache = new Map<bigint, number>();
+
 /// Scans FloorPaid + Won since ScratchCore's deploy block to reconstruct a
 /// running paid-out total and a live wins feed — nothing on-chain tracks a
 /// cumulative total directly, so this rebuilds it from event history.
@@ -40,9 +52,7 @@ const scratchedEvent = scratchCoreAbi.find((e) => e.type === "event" && e.name =
 /// can differ slightly from what players received if a route's DEX fee ate
 /// into the swap.
 export function useWinsFeed(): WinsFeedState {
-  const [state, setState] = useState<WinsFeedState>({ totalPaidOutWei: 0n, entries: [] });
-  const lastScannedBlockRef = useRef<bigint | null>(null);
-  const blockTimestampCache = useRef<Map<bigint, number>>(new Map());
+  const [state, setState] = useState<WinsFeedState>(cachedState);
 
   useEffect(() => {
     if (!SCRATCH_CORE_ADDRESS) return;
@@ -50,18 +60,18 @@ export function useWinsFeed(): WinsFeedState {
     let cancelled = false;
 
     async function timestampFor(blockNumber: bigint): Promise<number> {
-      const cached = blockTimestampCache.current.get(blockNumber);
+      const cached = blockTimestampCache.get(blockNumber);
       if (cached !== undefined) return cached;
       const block = await publicClient.getBlock({ blockNumber });
       const ms = Number(block.timestamp) * 1000;
-      blockTimestampCache.current.set(blockNumber, ms);
+      blockTimestampCache.set(blockNumber, ms);
       return ms;
     }
 
     async function scan() {
       if (cancelled) return;
       const latest = await publicClient.getBlockNumber();
-      let chunkStart = lastScannedBlockRef.current !== null ? lastScannedBlockRef.current + 1n : SCRATCH_CORE_DEPLOY_BLOCK;
+      let chunkStart = lastScannedBlock !== null ? lastScannedBlock + 1n : SCRATCH_CORE_DEPLOY_BLOCK;
       if (chunkStart > latest) return;
 
       while (chunkStart <= latest && !cancelled) {
@@ -112,15 +122,14 @@ export function useWinsFeed(): WinsFeedState {
             });
           }
 
-          if (!cancelled) {
-            setState((prev) => ({
-              totalPaidOutWei: prev.totalPaidOutWei + addedWei,
-              entries: [...newEntries.reverse(), ...prev.entries].slice(0, MAX_FEED_LEN),
-            }));
-          }
+          cachedState = {
+            totalPaidOutWei: cachedState.totalPaidOutWei + addedWei,
+            entries: [...newEntries.reverse(), ...cachedState.entries].slice(0, MAX_FEED_LEN),
+          };
+          if (!cancelled) setState(cachedState);
         }
 
-        lastScannedBlockRef.current = chunkEnd;
+        lastScannedBlock = chunkEnd;
         chunkStart = chunkEnd + 1n;
       }
     }

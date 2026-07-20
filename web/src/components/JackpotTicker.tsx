@@ -6,12 +6,19 @@ interface JackpotTickerProps {
 }
 
 export function JackpotTicker({ valueUsd }: JackpotTickerProps) {
-  const [displayValue, setDisplayValue] = useState(0);
+  // Seeded from valueUsd, not 0 — Home.tsx's game-stats hook now caches its
+  // last known value across remounts (react-router unmounts on navigation),
+  // so revisiting the Scoreboard page can already have a real value on the
+  // very first render. Seeding from it means that case renders immediately
+  // instead of counting up from $0 again; a genuine cold start still has
+  // valueUsd at 0 here too, so the normal count-up-once-loaded behavior is
+  // unchanged.
+  const [displayValue, setDisplayValue] = useState(valueUsd);
   const frame = useRef<number>(0);
   // Tracks where the last animation landed, so a live-updating jackpot eases
   // from its current value to the new one instead of resetting to $0 and
   // counting back up on every tick.
-  const fromValue = useRef(0);
+  const fromValue = useRef(valueUsd);
 
   useEffect(() => {
     const start = performance.now();

@@ -44,10 +44,18 @@ async function fetchEthUsdPrice(): Promise<number> {
   return Number(scaledPrice) / 10 ** Number(PRECISION_DIGITS);
 }
 
+// Module-level, not component state — react-router unmounts Home.tsx/
+// Flywheel.tsx on navigation, and without this every single visit to those
+// pages would flash back to "undefined" and block on a fresh RPC round
+// trip before showing anything, even seconds after the last visit already
+// had a perfectly good price.
+let cachedPrice: number | undefined;
+
 /// Live ETH/USD spot price, refreshed every 60s. undefined until the first
-/// successful read.
+/// successful read this session; returns the last known price immediately
+/// on remount instead of resetting to undefined.
 export function useEthUsdPrice(): number | undefined {
-  const [price, setPrice] = useState<number | undefined>(undefined);
+  const [price, setPrice] = useState<number | undefined>(cachedPrice);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +63,7 @@ export function useEthUsdPrice(): number | undefined {
     async function poll() {
       try {
         const next = await fetchEthUsdPrice();
+        cachedPrice = next;
         if (!cancelled) setPrice(next);
       } catch (err) {
         console.error("[ethPrice] failed to fetch ETH/USD price:", err);

@@ -12,10 +12,16 @@ export interface GameStats {
   jackpotPotWei: bigint;
 }
 
+// Module-level, not component state — Home.tsx unmounts on navigation, and
+// without this every visit would flash back to "…" and wait on a fresh RPC
+// round trip before showing numbers that were already known a moment ago.
+let cachedStats: GameStats | undefined;
+
 /// Polls ScratchCore's daily-cap and jackpot state directly. undefined until
-/// the first successful read, or if SCRATCH_CORE_ADDRESS is unset.
+/// the first successful read this session, or if SCRATCH_CORE_ADDRESS is
+/// unset; returns the last known stats immediately on remount.
 export function useGameStats(): GameStats | undefined {
-  const [stats, setStats] = useState<GameStats | undefined>(undefined);
+  const [stats, setStats] = useState<GameStats | undefined>(cachedStats);
 
   useEffect(() => {
     if (!SCRATCH_CORE_ADDRESS) return;
@@ -29,7 +35,8 @@ export function useGameStats(): GameStats | undefined {
           publicClient.readContract({ address: contractAddress, abi: scratchCoreAbi, functionName: "cardsSoldToday" }),
           publicClient.readContract({ address: contractAddress, abi: scratchCoreAbi, functionName: "jackpotPot" }),
         ]);
-        if (!cancelled) setStats({ dailyCap, cardsSoldToday, jackpotPotWei });
+        cachedStats = { dailyCap, cardsSoldToday, jackpotPotWei };
+        if (!cancelled) setStats(cachedStats);
       } catch (err) {
         console.error("[useGameStats] poll failed:", err);
       }
