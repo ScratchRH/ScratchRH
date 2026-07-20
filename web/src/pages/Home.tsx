@@ -30,6 +30,7 @@ export function Home() {
   // --- demo-mode-only state ---
   const [mockWins, setMockWins] = useState<WinEntry[]>(() => generateMockWins(18));
   const [mockJackpotUsd, setMockJackpotUsd] = useState(GLOBAL_STATS.jackpotPotUsd);
+  const [mockInstantPoolUsd, setMockInstantPoolUsd] = useState(GLOBAL_STATS.instantPoolUsd);
   const [mockTotalPaidOutUsd, setMockTotalPaidOutUsd] = useState(GLOBAL_STATS.totalStockPaidOutUsd);
 
   const countdown = useRestockCountdown();
@@ -60,12 +61,14 @@ export function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // The jackpot is real S&P 500 exposure that grows from rake even when
-  // nobody's actively playing — tick it up independent of the wins feed.
+  // The jackpot and instant pool are real stock exposure that grows from
+  // rake even when nobody's actively playing — tick them up independent of
+  // the wins feed.
   useEffect(() => {
     if (REAL_MODE) return;
     const interval = setInterval(() => {
       setMockJackpotUsd((prev) => prev + 0.5 + Math.random() * 2.5);
+      setMockInstantPoolUsd((prev) => prev + 0.5 + Math.random() * 2.5);
     }, 4000);
     return () => clearInterval(interval);
   }, []);
@@ -92,6 +95,12 @@ export function Home() {
       ? Number(formatEther(scoreboard.jackpotPotWei)) * scoreboard.ethUsdPrice
       : 0
     : mockJackpotUsd;
+
+  const instantPoolLabel = REAL_MODE
+    ? scoreboard?.instantPoolWei === undefined || scoreboard.ethUsdPrice === undefined
+      ? "…"
+      : formatUsd(Number(formatEther(scoreboard.instantPoolWei)) * scoreboard.ethUsdPrice)
+    : formatUsd(mockInstantPoolUsd);
 
   const totalPaidOutLabel = REAL_MODE
     ? !scoreboard || scoreboard.ethUsdPrice === undefined
@@ -124,6 +133,7 @@ export function Home() {
           sub="Cumulative floor + instant + jackpot"
           accent
         />
+        <StatTile label="Instant Pool" value={instantPoolLabel} sub="Funds the 1x-10x instant-win tiers" />
         <StatTile
           label="Cards Remaining Today"
           value={cardsRemaining === undefined ? "…" : cardsRemaining.toLocaleString()}

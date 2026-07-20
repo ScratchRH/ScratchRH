@@ -20,6 +20,7 @@ export interface ScoreboardData {
   dailyCap: bigint | undefined;
   cardsSoldToday: bigint | undefined;
   jackpotPotWei: bigint | undefined;
+  instantPoolWei: bigint | undefined;
   totalPaidOutWei: bigint;
   wins: ScoreboardWinEntry[];
 }
@@ -29,6 +30,7 @@ interface RawResponse {
   dailyCap: string | undefined;
   cardsSoldToday: string | undefined;
   jackpotPotWei: string | undefined;
+  instantPoolWei: string | undefined;
   totalPaidOutWei: string;
   wins: { id: string; player: `0x${string}`; tier: number; stockToken: `0x${string}`; amountWei: string; timestamp: number; txHash: string }[];
 }
@@ -39,6 +41,7 @@ function parse(raw: RawResponse): ScoreboardData {
     dailyCap: raw.dailyCap === undefined ? undefined : BigInt(raw.dailyCap),
     cardsSoldToday: raw.cardsSoldToday === undefined ? undefined : BigInt(raw.cardsSoldToday),
     jackpotPotWei: raw.jackpotPotWei === undefined ? undefined : BigInt(raw.jackpotPotWei),
+    instantPoolWei: raw.instantPoolWei === undefined ? undefined : BigInt(raw.instantPoolWei),
     totalPaidOutWei: BigInt(raw.totalPaidOutWei),
     wins: raw.wins.map((w) => ({ ...w, tier: tierFromOnchain(w.tier), amountWei: BigInt(w.amountWei) })),
   };

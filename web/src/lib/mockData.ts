@@ -196,6 +196,7 @@ export const SAMPLE_PORTFOLIOS: Record<string, PlayerPortfolio> = {
 
 export const GLOBAL_STATS = {
   jackpotPotUsd: 5240,
+  instantPoolUsd: 4980,
   totalStockPaidOutUsd: 284_600,
   dailyCap: 1000,
   cardsSoldToday: 617,
