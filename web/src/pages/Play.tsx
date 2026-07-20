@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatEther } from "viem";
 import { Confetti } from "../components/Confetti";
 import { FlyingCard } from "../components/FlyingCard";
@@ -81,6 +81,16 @@ export function Play() {
   }, [ticketStatus]);
 
   const displayActive = REAL_MODE ? realActive : active;
+
+  // The payment lands from an external wallet, not a click on this page, so
+  // nothing naturally draws the eye down to the Scratch panel the way the
+  // demo mode's flying-card animation does. Jump there ourselves the moment
+  // the keeper's watcher notices the payment.
+  useEffect(() => {
+    if (REAL_MODE && ticketStatus.phase === "pending-reveal") {
+      scratchAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [ticketStatus.phase]);
 
   function submitAddress(value: string) {
     const trimmed = value.trim();
