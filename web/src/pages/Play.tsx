@@ -255,7 +255,9 @@ export function Play() {
                     </div>
                     <div className="holding-row">
                       <span>To</span>
-                      <span>{SCRATCH_CORE_ADDRESS}</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all", textAlign: "right" }}>
+                        {SCRATCH_CORE_ADDRESS}
+                      </span>
                     </div>
                     <button
                       className="btn btn-ghost"
@@ -273,7 +275,9 @@ export function Play() {
                     </div>
                     <div className="holding-row">
                       <span>To</span>
-                      <span>{SCRATCH_CORE_ADDRESS}</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all", textAlign: "right" }}>
+                        {SCRATCH_CORE_ADDRESS}
+                      </span>
                     </div>
                     <div className="holding-row">
                       <span>With calldata</span>
