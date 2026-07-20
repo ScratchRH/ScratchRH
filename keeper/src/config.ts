@@ -16,6 +16,10 @@ export const config = {
   // Sweeping is skipped entirely while this is unset, so deploying this code
   // ahead of launch is a no-op rather than a crash.
   tokenTaxRouterAddress: (process.env.TOKEN_TAX_ROUTER_ADDRESS || undefined) as `0x${string}` | undefined,
+  // Optional: unset disables the daily free-card claim entirely (checked at
+  // the top of dailyClaim.ts) rather than crashing, same reasoning as
+  // tokenTaxRouterAddress above.
+  scratchTokenAddress: (process.env.SCRATCH_TOKEN_ADDRESS || undefined) as `0x${string}` | undefined,
 
   pollIntervalMs: Number(process.env.POLL_INTERVAL_MS ?? 2000),
   stateFile: process.env.STATE_FILE ?? "./keeper-state.json",
@@ -58,6 +62,11 @@ export const config = {
   // if you override dashboardRpcUrl to something free-tier-capped instead.
   dashboardScanChunkBlocks: BigInt(process.env.DASHBOARD_SCAN_CHUNK_BLOCKS ?? "2000"),
   dashboardScanChunkDelayMs: Number(process.env.DASHBOARD_SCAN_CHUNK_DELAY_MS ?? 100),
+
+  // Daily free-card claim (dailyClaim.ts) — persists which address claimed
+  // on which UTC day, on the same volume as stateFile/dashboardCacheFile so
+  // it survives restarts (a wiped file would just let everyone re-claim).
+  dailyClaimFile: process.env.DAILY_CLAIM_FILE ?? "./daily-claim-state.json",
 
   x: {
     apiKey: process.env.X_API_KEY ?? "",
