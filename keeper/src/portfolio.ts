@@ -34,17 +34,22 @@ export async function getPortfolio(address: `0x${string}`): Promise<PortfolioSna
   const cached = cache.get(key);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.snapshot;
 
+  // Both cores queried in one call each (viem's getLogs accepts an address
+  // array) — Whale's own deploy block is later than SCRATCH_CORE_DEPLOY_BLOCK,
+  // but scanning the extra empty range for it costs nothing beyond the one
+  // request; still player-indexed, so this stays a targeted query either way.
+  const addresses = config.whaleScratchCoreAddress ? [config.scratchCoreAddress, config.whaleScratchCoreAddress] : [config.scratchCoreAddress];
   const latest = await publicClient.getBlockNumber();
   const [floorLogs, wonLogs] = await Promise.all([
     publicClient.getLogs({
-      address: config.scratchCoreAddress,
+      address: addresses,
       event: floorPaidEvent,
       args: { player: address },
       fromBlock: SCRATCH_CORE_DEPLOY_BLOCK,
       toBlock: latest,
     }),
     publicClient.getLogs({
-      address: config.scratchCoreAddress,
+      address: addresses,
       event: wonEvent,
       args: { player: address },
       fromBlock: SCRATCH_CORE_DEPLOY_BLOCK,

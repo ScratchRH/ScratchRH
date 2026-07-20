@@ -12,6 +12,22 @@ export const config = {
   keeperPrivateKey: required("KEEPER_PRIVATE_KEY") as `0x${string}`,
   scratchCoreAddress: required("SCRATCH_CORE_ADDRESS") as `0x${string}`,
   randomnessAddress: required("RANDOMNESS_ADDRESS") as `0x${string}`,
+  // Optional second ScratchCore for the $30 Whale card — a parallel
+  // deployment reusing the same PrizeConverter (see
+  // script/ScratchCore.s.sol's runWhale()), not a redeploy of the main game.
+  // Unset disables Whale handling everywhere (reveal-watcher, dashboard-cache
+  // scanning) rather than crashing, same pattern as tokenTaxRouterAddress.
+  whaleScratchCoreAddress: (process.env.WHALE_SCRATCH_CORE_ADDRESS || undefined) as `0x${string}` | undefined,
+  whaleRandomnessAddress: (process.env.WHALE_RANDOMNESS_ADDRESS || undefined) as `0x${string}` | undefined,
+  whaleStateFile: process.env.WHALE_STATE_FILE ?? "./keeper-state-whale.json",
+  // Block Whale's ScratchCore/Randomness were created at, block 14995804
+  // (2026-07-20; broadcast record at
+  // broadcast/ScratchCore.s.sol/4663/runVip-latest.json — run before this
+  // script's runVip() was renamed to runWhale()) — dashboard-cache scans
+  // from here rather than SCRATCH_CORE_DEPLOY_BLOCK, since a full-history
+  // scan from the main core's much earlier deploy block would spend
+  // thousands of empty requests on blocks before this contract even existed.
+  whaleScratchCoreDeployBlock: BigInt(process.env.WHALE_SCRATCH_CORE_DEPLOY_BLOCK ?? "14995804"),
   // Optional: unset until $SCRATCH actually launches (script/LaunchScratchToken.s.sol).
   // Sweeping is skipped entirely while this is unset, so deploying this code
   // ahead of launch is a no-op rather than a crash.

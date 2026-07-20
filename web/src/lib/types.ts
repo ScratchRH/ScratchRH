@@ -1,4 +1,4 @@
-export type CardType = "Penny" | "Classic" | "Premium";
+export type CardType = "Penny" | "Classic" | "Premium" | "Whale";
 export type Tier = "1x" | "2x" | "3x" | "4x" | "5x" | "10x" | "Jackpot" | "None";
 
 export interface CardConfig {

@@ -7,6 +7,13 @@ export const CARD_CONFIGS: CardConfig[] = [
   { type: "Penny", priceUsd: 1, floorUsd: 0.4, jackpotEntries: 0 },
   { type: "Classic", priceUsd: 5, floorUsd: 2, jackpotEntries: 1 },
   { type: "Premium", priceUsd: 10, floorUsd: 4, jackpotEntries: 2 },
+  // Lives on its own ScratchCore deployment, not the main contract (see
+  // script/ScratchCore.s.sol's runWhale()) — CardType is a fixed 3-slot
+  // enum with no setter, so a 4th price point can't be added to the main
+  // contract without a full redeploy. SPEC.md §2 originally specced this
+  // tier at $25/5×/5 entries; shipped at $30 instead, same 0.2-entries-
+  // per-dollar ratio the other paid tiers use.
+  { type: "Whale", priceUsd: 30, floorUsd: 12, jackpotEntries: 6 },
 ];
 
 export interface FundSplitSegment {

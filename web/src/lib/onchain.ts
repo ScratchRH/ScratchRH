@@ -32,10 +32,15 @@ export function tierFromOnchain(value: number): Tier {
 // Mirrors ScratchCore's cardConfigs prices exactly (src/ScratchCore.sol) —
 // the receive() fallback infers CardType from one of these three exact
 // values, so a real payment has to match to the wei.
+// Whale is priced on a separate ScratchCore deployment (see chain.ts's
+// WHALE_SCRATCH_CORE_ADDRESS) where all 3 of that contract's CardConfig
+// slots are set to this identical value — see script/ScratchCore.s.sol's
+// _whaleCardConfigs() doc comment for why.
 export const CARD_PRICE_WEI: Record<CardType, bigint> = {
   Penny: parseEther("0.00054"),
   Classic: parseEther("0.0027"),
   Premium: parseEther("0.0054"),
+  Whale: parseEther("0.0158"),
 };
 
 export function isLikelyAddress(value: string): value is `0x${string}` {

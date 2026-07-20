@@ -134,7 +134,7 @@ contract DeployScratchCore is Script {
     {
         vm.startBroadcast();
         converter = new PrizeConverter(IPoolManager(V4_POOL_MANAGER), IWETH(WETH), OWNER);
-        (randomness, core, taxRouter) = _deployRest(converter);
+        (randomness, core, taxRouter) = _deployRest(converter, _cardConfigs(), true);
         vm.stopBroadcast();
     }
 
@@ -153,13 +153,39 @@ contract DeployScratchCore is Script {
         converter = PrizeConverter(payable(existingConverter));
 
         vm.startBroadcast();
-        (randomness, core, taxRouter) = _deployRest(converter);
+        (randomness, core, taxRouter) = _deployRest(converter, _cardConfigs(), true);
         vm.stopBroadcast();
     }
 
-    /// Shared by run() and runWithExistingConverter() — must be called
-    /// inside an active vm.startBroadcast()/stopBroadcast() block.
-    function _deployRest(PrizeConverter converter)
+    /// A second, parallel ScratchCore for a $30 card, alongside (not
+    /// replacing) the live $1/$5/$10 core — CardType is a fixed 3-slot enum
+    /// with no setter (see ScratchCore's cardConfigs doc comment), so a new
+    /// price point can't be added to an existing deployment; this is the
+    /// workaround. Reuses the SAME already-configured PrizeConverter (its
+    /// convert() has no caller restriction, so any ScratchCore can call it)
+    /// — the live game's pools, tickets, and player history are untouched by
+    /// this. No TokenTaxRouter here: $SCRATCH's trading tax already routes
+    /// into the original core exclusively; this pool is meant to be funded
+    /// manually (ScratchCore.fundPools(), permissionless) from accumulated
+    /// ops fees instead. All 3 card slots get the identical $30 config —
+    /// deliberately, so there's no accidental cheap tier live on this
+    /// contract regardless of which CardType a caller passes.
+    function runWhale(address existingConverter) external returns (Randomness randomness, ScratchCore core) {
+        require(existingConverter != address(0), "existingConverter not set");
+        require(existingConverter.code.length != 0, "existingConverter has no code");
+        PrizeConverter converter = PrizeConverter(payable(existingConverter));
+
+        vm.startBroadcast();
+        (randomness, core,) = _deployRest(converter, _whaleCardConfigs(), false);
+        vm.stopBroadcast();
+    }
+
+    /// Shared by run(), runWithExistingConverter(), and runWhale() — must be
+    /// called inside an active vm.startBroadcast()/stopBroadcast() block.
+    /// `deployTaxRouter` is false for runWhale(): a second TokenTaxRouter
+    /// would have no $SCRATCH fee stream pointed at it and would just be
+    /// dead code on-chain.
+    function _deployRest(PrizeConverter converter, ScratchCore.CardConfig[3] memory cardConfigs, bool deployTaxRouter)
         internal
         returns (Randomness randomness, ScratchCore core, TokenTaxRouter taxRouter)
     {
@@ -178,13 +204,13 @@ contract DeployScratchCore is Script {
             RAKE_RECIPIENT,
             SPY, // jackpot always settles in SPY, regardless of the mystery pull
             _deck(),
-            _cardConfigs(),
+            cardConfigs,
             DAILY_CAP,
             OWNER
         );
         require(address(core) == predictedCore, "address prediction drifted");
 
-        taxRouter = new TokenTaxRouter(core, OPS_ADDRESS);
+        if (deployTaxRouter) taxRouter = new TokenTaxRouter(core, OPS_ADDRESS);
     }
 
     /// Owner-only follow-up: populates all six routes on an already-deployed
@@ -255,5 +281,20 @@ contract DeployScratchCore is Script {
         cfg[0] = ScratchCore.CardConfig({price: 0.00054 ether, jackpotEntries: 0}); // Penny
         cfg[1] = ScratchCore.CardConfig({price: 0.0027 ether, jackpotEntries: 1}); // Classic
         cfg[2] = ScratchCore.CardConfig({price: 0.0054 ether, jackpotEntries: 2}); // Premium
+    }
+
+    /// $30 tier for the standalone Whale core (see runWhale()'s doc comment).
+    /// Priced 2026-07-20 against the live WETH/USDG pool rate (~$1901/ETH,
+    /// re-read fresh at the time this was written — already ~2% off the
+    /// original $1/$5/$10 lineup's implied rate, since that was set earlier
+    /// the same day; same drift-over-time caveat as _cardConfigs() applies).
+    /// jackpotEntries=6 keeps the same 0.2-entries-per-dollar ratio the
+    /// Classic/Premium configs above use (1/$5, 2/$10). All 3 slots
+    /// identical on purpose — see runWhale().
+    function _whaleCardConfigs() internal pure returns (ScratchCore.CardConfig[3] memory cfg) {
+        ScratchCore.CardConfig memory whale = ScratchCore.CardConfig({price: 0.0158 ether, jackpotEntries: 6});
+        cfg[0] = whale;
+        cfg[1] = whale;
+        cfg[2] = whale;
     }
 }

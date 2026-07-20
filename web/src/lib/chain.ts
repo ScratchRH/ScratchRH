@@ -20,6 +20,12 @@ export const SCRATCH_CORE_ADDRESS = import.meta.env.VITE_SCRATCH_CORE_ADDRESS as
 // not a correctness bug, but keeping it close keeps that scan fast.
 export const SCRATCH_CORE_DEPLOY_BLOCK = 14_794_301n;
 
+// Second, parallel ScratchCore for the $30 Whale card (script/ScratchCore.s.sol's
+// runVip(), reuses the main game's already-configured PrizeConverter — not a
+// redeploy of the main $1/$5/$10 game). Unset hides the Whale card from Play
+// entirely rather than showing a card nobody can actually pay into.
+export const WHALE_SCRATCH_CORE_ADDRESS = import.meta.env.VITE_WHALE_SCRATCH_CORE_ADDRESS as `0x${string}` | undefined;
+
 // $SCRATCH itself — unset until script/LaunchScratchToken.s.sol actually
 // runs, unlike SCRATCH_CORE_DEPLOY_BLOCK above there's no way to know this
 // ahead of time, so both come from env rather than one being hardcoded.

@@ -141,15 +141,22 @@ test("reveal watcher cranks a matured ticket end-to-end on a local anvil chain",
 
   const { initState, runOnce } = await import("../src/revealWatcher.js");
 
-  let state = await initState();
-  state = await runOnce(state);
+  const testCore = {
+    label: "main",
+    scratchCoreAddress: core.address as `0x${string}`,
+    randomnessAddress: randomness.address as `0x${string}`,
+    stateFile: STATE_FILE,
+  };
+
+  let state = await initState(testCore);
+  state = await runOnce(testCore, state);
   assert.ok(state.pendingTicketIds.includes(ticketId.toString()), "ticket should be queued but not yet revealable");
 
   // REVEAL_DELAY is 3 blocks; mine well past that instantly instead of
   // waiting on wall-clock time.
   await publicClient.request({ method: "anvil_mine" as never, params: ["0x5"] as never });
 
-  state = await runOnce(state);
+  state = await runOnce(testCore, state);
   assert.ok(
     !state.pendingTicketIds.includes(ticketId.toString()),
     "ticket should have been scratched and removed from the pending queue",

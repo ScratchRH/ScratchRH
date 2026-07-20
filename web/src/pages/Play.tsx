@@ -9,8 +9,8 @@ import { FundSplitBar } from "../components/FundSplitBar";
 import { xpForCard } from "../lib/gamification";
 import { formatUsd, truncateAddress } from "../lib/format";
 import { getRememberedAddress, rememberAddress } from "../lib/rememberedAddress";
-import { SCRATCH_CORE_ADDRESS } from "../lib/chain";
-import { CARD_PRICE_WEI, cardTypeFromOnchain, isLikelyAddress, symbolForStockToken, tierFromOnchain } from "../lib/onchain";
+import { SCRATCH_CORE_ADDRESS, WHALE_SCRATCH_CORE_ADDRESS } from "../lib/chain";
+import { CARD_PRICE_WEI, isLikelyAddress, symbolForStockToken, tierFromOnchain } from "../lib/onchain";
 import { connectWallet, ensureRobinhoodChain, hasInjectedWallet, sendBuyBatch } from "../lib/wallet";
 import { useTicketWatcher } from "../hooks/useTicketWatcher";
 import type { CardType, Tier } from "../lib/types";
@@ -41,8 +41,15 @@ const PENDING_PAYMENT_MS = 1400;
 // local demo of the odds and payout math with no wallet, no RPC, nothing.
 const REAL_MODE = Boolean(SCRATCH_CORE_ADDRESS);
 
-const CARD_TYPE_INDEX: Record<CardType, number> = { Penny: 0, Classic: 1, Premium: 2 };
+// Whale lives on a separate contract (see chain.ts's WHALE_SCRATCH_CORE_ADDRESS
+// doc comment) — CardType index doesn't matter for it since all 3 of that
+// contract's slots are the identical Whale config, so any value works.
+const CARD_TYPE_INDEX: Record<CardType, number> = { Penny: 0, Classic: 1, Premium: 2, Whale: 0 };
 const MAX_BATCH = 5;
+
+function coreAddressFor(type: CardType): `0x${string}` | undefined {
+  return type === "Whale" ? WHALE_SCRATCH_CORE_ADDRESS : SCRATCH_CORE_ADDRESS;
+}
 
 export function Play() {
   const [selected, setSelected] = useState<CardType>("Classic");
@@ -82,12 +89,17 @@ export function Play() {
   // Single-card buys watch whatever address the player typed in; batch buys
   // watch the connected wallet, since that's the actual on-chain sender.
   const effectiveWatchedAddress = count === 1 ? watchedAddress : connectedWallet;
-  const ticketStatuses = useTicketWatcher(REAL_MODE ? effectiveWatchedAddress : undefined, watchGeneration, count);
+  const ticketStatuses = useTicketWatcher(
+    REAL_MODE ? effectiveWatchedAddress : undefined,
+    watchGeneration,
+    count,
+    coreAddressFor(selected),
+  );
   const ticketStatus = ticketStatuses[currentTicketIdx] ?? { phase: "idle" as const };
 
   const realActive: ActiveCard | null = useMemo(() => {
     if (!REAL_MODE || ticketStatus.phase !== "revealed") return null;
-    const cardType = cardTypeFromOnchain(ticketStatus.cardType);
+    const cardType = ticketStatus.cardType;
     const tier = tierFromOnchain(ticketStatus.tier);
     const config = CARD_CONFIGS.find((c) => c.type === cardType)!;
     return {
@@ -145,7 +157,8 @@ export function Play() {
   }
 
   async function handleBuyBatch() {
-    if (!connectedWallet || !SCRATCH_CORE_ADDRESS) return;
+    const contractAddress = coreAddressFor(selected);
+    if (!connectedWallet || !contractAddress) return;
     setWalletError(undefined);
     setBuying(true);
     setRevealedKey(null);
@@ -154,7 +167,7 @@ export function Play() {
       await ensureRobinhoodChain();
       await sendBuyBatch({
         account: connectedWallet,
-        contractAddress: SCRATCH_CORE_ADDRESS,
+        contractAddress,
         cardTypeIndex: CARD_TYPE_INDEX[selected],
         count,
         valueWei: CARD_PRICE_WEI[selected] * BigInt(count),
@@ -216,6 +229,11 @@ export function Play() {
   const wonInstant = revealed && displayActive.tier !== "None";
 
   const selectedConfig = CARD_CONFIGS.find((c) => c.type === selected)!;
+  // Hide Whale in real mode until its own contract address is actually
+  // configured — same "don't advertise a card nobody can pay into" guard
+  // REAL_MODE itself uses for SCRATCH_CORE_ADDRESS. Demo mode always shows
+  // all 4 since there's no real contract to be missing.
+  const availableCardConfigs = REAL_MODE ? CARD_CONFIGS.filter((c) => c.type !== "Whale" || WHALE_SCRATCH_CORE_ADDRESS) : CARD_CONFIGS;
 
   return (
     <div className="stack">
@@ -224,7 +242,7 @@ export function Play() {
       <div className="panel">
         <div className="panel-title">Choose a card</div>
         <div className="card-picker">
-          {CARD_CONFIGS.map((config) => (
+          {availableCardConfigs.map((config) => (
             <div
               key={config.type}
               ref={(el) => {
@@ -341,13 +359,13 @@ export function Play() {
                   <div className="holding-row">
                     <span>To</span>
                     <span style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all", textAlign: "right" }}>
-                      {SCRATCH_CORE_ADDRESS}
+                      {coreAddressFor(selected)}
                     </span>
                   </div>
                   <button
                     className="btn btn-ghost"
                     type="button"
-                    onClick={() => navigator.clipboard?.writeText(SCRATCH_CORE_ADDRESS as string)}
+                    onClick={() => navigator.clipboard?.writeText(coreAddressFor(selected) as string)}
                   >
                     Copy contract address
                   </button>
@@ -399,7 +417,7 @@ export function Play() {
               <div className="pending-ticket" key={ticketStatus.ticketId.toString()}>
                 <img
                   className="pending-ticket-art"
-                  src={`/packs/${cardTypeFromOnchain(ticketStatus.cardType).toLowerCase()}.webp`}
+                  src={`/packs/${ticketStatus.cardType.toLowerCase()}.webp`}
                   alt=""
                 />
                 <div className="pending-ticket-label">

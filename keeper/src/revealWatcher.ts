@@ -8,6 +8,32 @@ import { maybeSweep } from "./taxSweeper.js";
 
 const TIER_JACKPOT = 5;
 
+/// One entry per live ScratchCore — always the main $1/$5/$10 game, plus the
+/// $30 WHALE core once WHALE_SCRATCH_CORE_ADDRESS is set (see config.ts). Each
+/// core gets its own state file since ticket IDs restart at 1 per contract
+/// and aren't comparable across them.
+export interface Core {
+  label: string;
+  scratchCoreAddress: `0x${string}`;
+  randomnessAddress: `0x${string}`;
+  stateFile: string;
+}
+
+function cores(): Core[] {
+  const list: Core[] = [
+    { label: "main", scratchCoreAddress: config.scratchCoreAddress, randomnessAddress: config.randomnessAddress, stateFile: config.stateFile },
+  ];
+  if (config.whaleScratchCoreAddress && config.whaleRandomnessAddress) {
+    list.push({
+      label: "whale",
+      scratchCoreAddress: config.whaleScratchCoreAddress,
+      randomnessAddress: config.whaleRandomnessAddress,
+      stateFile: config.whaleStateFile,
+    });
+  }
+  return list;
+}
+
 // abi.ts's exports are readonly tuples (`as const`), not plain `Abi`, so
 // parseEventLogs's generics don't line up cleanly here — decode into this
 // minimal shape instead of fighting them.
@@ -24,8 +50,8 @@ function emptyState(startBlock: bigint): KeeperState {
   };
 }
 
-export async function initState(): Promise<KeeperState> {
-  const existing = loadState(config.stateFile);
+export async function initState(core: Core): Promise<KeeperState> {
+  const existing = loadState(core.stateFile);
   if (existing) return existing;
 
   const latest = await publicClient.getBlockNumber();
@@ -46,7 +72,7 @@ export async function initState(): Promise<KeeperState> {
 /// forever (that was the actual bug: a failed call never reached
 /// saveState(), so lastProcessedBlock stayed pinned while toBlock kept
 /// growing every poll, guaranteeing every future call was equally too wide).
-async function pollForNewTickets(state: KeeperState): Promise<KeeperState> {
+async function pollForNewTickets(core: Core, state: KeeperState): Promise<KeeperState> {
   const toBlock = await publicClient.getBlockNumber();
   let lastProcessedBlock = BigInt(state.lastProcessedBlock);
   let chunkStart = lastProcessedBlock + 1n;
@@ -60,14 +86,14 @@ async function pollForNewTickets(state: KeeperState): Promise<KeeperState> {
     let logs;
     try {
       logs = await publicClient.getLogs({
-        address: config.scratchCoreAddress,
+        address: core.scratchCoreAddress,
         event: boughtEvent,
         fromBlock: chunkStart,
         toBlock: chunkEnd,
       });
     } catch (err) {
       console.error(
-        `[reveal-watcher] getLogs ${chunkStart}-${chunkEnd} failed, resuming next poll: ${(err as Error).message.split("\n")[0]}`,
+        `[reveal-watcher:${core.label}] getLogs ${chunkStart}-${chunkEnd} failed, resuming next poll: ${(err as Error).message.split("\n")[0]}`,
       );
       break;
     }
@@ -112,7 +138,7 @@ function extractWin(ticketId: bigint, receipt: TransactionReceipt) {
 /// rerolled — ScratchCore doesn't expose a passthrough to
 /// Randomness.reroll (onlyConsumer) — so we just warn once and leave them
 /// stuck pending a contract-level fix.
-async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
+async function processPendingTickets(core: Core, state: KeeperState): Promise<KeeperState> {
   const stillPending: string[] = [];
   const warnedExpired = new Set(state.warnedExpiredTicketIds);
 
@@ -120,7 +146,7 @@ async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
     const ticketId = BigInt(idStr);
 
     const revealable = await publicClient.readContract({
-      address: config.randomnessAddress,
+      address: core.randomnessAddress,
       abi: randomnessAbi,
       functionName: "isRevealable",
       args: [ticketId],
@@ -133,7 +159,7 @@ async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
       // fulfilled explicitly, or a resolved ticket sits in pendingTicketIds
       // forever, re-checked (and re-persisted) every single poll.
       const [, fulfilled] = await publicClient.readContract({
-        address: config.randomnessAddress,
+        address: core.randomnessAddress,
         abi: randomnessAbi,
         functionName: "requests",
         args: [ticketId],
@@ -141,13 +167,13 @@ async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
       if (fulfilled) continue;
 
       const expired = await publicClient.readContract({
-        address: config.randomnessAddress,
+        address: core.randomnessAddress,
         abi: randomnessAbi,
         functionName: "isExpired",
         args: [ticketId],
       });
       if (expired && !warnedExpired.has(idStr)) {
-        console.warn(`[reveal-watcher] ticket ${idStr} blockhash expired and cannot be rerolled — stuck.`);
+        console.warn(`[reveal-watcher:${core.label}] ticket ${idStr} blockhash expired and cannot be rerolled — stuck.`);
         warnedExpired.add(idStr);
       }
       stillPending.push(idStr);
@@ -157,7 +183,7 @@ async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
     try {
       const { request } = await publicClient.simulateContract({
         account: walletClient.account,
-        address: config.scratchCoreAddress,
+        address: core.scratchCoreAddress,
         abi: scratchCoreAbi,
         functionName: "scratch",
         args: [ticketId],
@@ -165,35 +191,42 @@ async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
       const hash = await walletClient.writeContract(request);
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-      console.log(`[reveal-watcher] scratched ticket ${idStr} (tx ${hash})`);
+      console.log(`[reveal-watcher:${core.label}] scratched ticket ${idStr} (tx ${hash})`);
 
       const win = extractWin(ticketId, receipt);
       if (win && win.payout > 0n) await maybePostWin(win);
     } catch (err) {
       // Most likely: another keeper already scratched this ticket first.
       // Permissionless cranking means that's an expected race, not a bug.
-      console.log(`[reveal-watcher] skipping ticket ${idStr}: ${(err as Error).message.split("\n")[0]}`);
+      console.log(`[reveal-watcher:${core.label}] skipping ticket ${idStr}: ${(err as Error).message.split("\n")[0]}`);
     }
   }
 
   return { ...state, pendingTicketIds: stillPending, warnedExpiredTicketIds: [...warnedExpired] };
 }
 
-export async function runOnce(state: KeeperState): Promise<KeeperState> {
-  const afterPoll = await pollForNewTickets(state);
-  const afterProcess = await processPendingTickets(afterPoll);
-  saveState(config.stateFile, afterProcess);
+export async function runOnce(core: Core, state: KeeperState): Promise<KeeperState> {
+  const afterPoll = await pollForNewTickets(core, state);
+  const afterProcess = await processPendingTickets(core, afterPoll);
+  saveState(core.stateFile, afterProcess);
   return afterProcess;
 }
 
 export async function runForever(): Promise<void> {
-  let state = await initState();
+  const activeCores = cores();
+  const states = new Map<string, KeeperState>();
+  for (const core of activeCores) states.set(core.label, await initState(core));
+
+  console.log(`[reveal-watcher] watching ${activeCores.length} core(s): ${activeCores.map((c) => c.label).join(", ")}`);
+
   let lastSweepCheckAt = 0;
   for (;;) {
-    try {
-      state = await runOnce(state);
-    } catch (err) {
-      console.error("[reveal-watcher] iteration failed:", err);
+    for (const core of activeCores) {
+      try {
+        states.set(core.label, await runOnce(core, states.get(core.label)!));
+      } catch (err) {
+        console.error(`[reveal-watcher:${core.label}] iteration failed:`, err);
+      }
     }
     try {
       lastSweepCheckAt = await maybeSweep(lastSweepCheckAt);

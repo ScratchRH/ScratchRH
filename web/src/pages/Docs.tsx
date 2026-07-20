@@ -52,7 +52,7 @@ export function Docs() {
             card on-chain within a few blocks.
           </p>
           <ol className="docs-list">
-            <li>Open the Play page and pick a card type (Penny, Classic, or Premium).</li>
+            <li>Open the Play page and pick a card type (Penny, Classic, Premium, or Whale).</li>
             <li>Enter your wallet address so the page knows what to watch for.</li>
             <li>Send exactly the listed ETH amount to the contract address shown.</li>
             <li>Wait a few blocks — the keeper reveals your card automatically.</li>
@@ -63,6 +63,13 @@ export function Docs() {
             a real contract call (<code className="docs-code">buyBatch</code>) rather than a plain ETH transfer, so
             that path connects your wallet instead — it builds and signs the transaction for you, same as any other
             on-chain app. A single card never needs a wallet at all.
+          </p>
+          <p className="docs-p">
+            Whale is a separate contract from Penny/Classic/Premium — the payment address shown on Play changes when
+            you pick it. This exists because ScratchCore's card lineup is fixed at deploy time with no admin setter
+            (SPEC.md §2 originally specced a $25 fourth tier called "Whale"; this ships it as its own deployment
+            instead of redeploying the whole game). It reuses the same PrizeConverter and mystery deck, so the odds
+            table and stock pulls below apply to it too.
           </p>
         </div>
 
@@ -77,6 +84,7 @@ export function Docs() {
                 <tr><td>Penny</td><td>0.00054 ETH</td><td>~$0.40 in stock</td><td>None</td></tr>
                 <tr><td>Classic</td><td>0.0027 ETH</td><td>~$2.00 in stock</td><td>1</td></tr>
                 <tr><td>Premium</td><td>0.0054 ETH</td><td>~$4.00 in stock</td><td>2</td></tr>
+                <tr><td>Whale</td><td>0.0158 ETH</td><td>~$12.00 in stock</td><td>6</td></tr>
               </tbody>
             </table>
           </div>
@@ -153,8 +161,10 @@ export function Docs() {
           <p className="docs-p">Contract addresses (Robinhood Chain, chain ID 4663):</p>
           <div className="docs-addresses">
             <div className="docs-address-row"><span>ScratchCore</span><code className="docs-code docs-addr">0x78f4c05926CE2858a455995f265dB2df777325C0</code></div>
+            <div className="docs-address-row"><span>ScratchCore (Whale, $30)</span><code className="docs-code docs-addr">0x491917887f961644b7C4e907f3836AB6032451dA</code></div>
             <div className="docs-address-row"><span>PrizeConverter</span><code className="docs-code docs-addr">0x51f15eEa8Ac4DAbf0D39ca01958dCf079869F20D</code></div>
             <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">0x7a963D699427D80a582B3b0391DeA2C8d1D6EF45</code></div>
+            <div className="docs-address-row"><span>Randomness (Whale, $30)</span><code className="docs-code docs-addr">0x9C083de7DCE16A2A47613c01880F9f5c6a078A20</code></div>
             <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">0x760F117668011C05c7A073e4F8FE0dcE660bE8dA</code></div>
             <div className="docs-address-row"><span>$SCRATCH</span><code className="docs-code docs-addr">0xD4a5B5f35607AAeEE619c15ac00D1193D9EF7777</code></div>
           </div>

@@ -33,6 +33,13 @@ export interface DashboardPlayerAgg {
 
 interface DashboardState {
   lastScannedBlock: string | null;
+  // Whale core's own scan cursor — kept separate from lastScannedBlock above
+  // since the two contracts deployed at very different blocks; a shared
+  // cursor would force one of them to re-scan its entire history for no
+  // reason. null/undefined-safe: absent entirely on cache files written
+  // before the Whale core existed, in which case scanEvents starts Whale's scan
+  // from its own deploy block, same as a fresh main-core cache would.
+  whaleLastScannedBlock: string | null | undefined;
   ethUsdPrice: number | undefined;
   ethUsdPriceUpdatedAt: number | undefined;
   dailyCap: string | undefined;
@@ -48,6 +55,7 @@ interface DashboardState {
 function emptyState(): DashboardState {
   return {
     lastScannedBlock: null,
+    whaleLastScannedBlock: null,
     ethUsdPrice: undefined,
     ethUsdPriceUpdatedAt: undefined,
     dailyCap: undefined,
@@ -97,14 +105,38 @@ async function refreshEthPrice(): Promise<void> {
   }
 }
 
+/// Reads dailyCap/cardsSoldToday/jackpotPot/instantPool for one ScratchCore.
+async function readGameStats(address: `0x${string}`) {
+  const [dailyCap, cardsSoldToday, jackpotPotWei, instantPoolWei] = await Promise.all([
+    publicClient.readContract({ address, abi: scratchCoreAbi, functionName: "dailyCap" }),
+    publicClient.readContract({ address, abi: scratchCoreAbi, functionName: "cardsSoldToday" }),
+    publicClient.readContract({ address, abi: scratchCoreAbi, functionName: "jackpotPot" }),
+    publicClient.readContract({ address, abi: scratchCoreAbi, functionName: "instantPool" }),
+  ]);
+  return { dailyCap, cardsSoldToday, jackpotPotWei, instantPoolWei };
+}
+
+/// Summed across both cores when the Whale core is configured — dailyCap and
+/// cardsSoldToday are genuinely additive ("cards remaining today, across
+/// every card type"), and jackpotPot/instantPool are summed the same way
+/// totalPaidOutWei already is below (a flat running total of real ETH
+/// currently sitting in prize pools, not scoped to one card size).
 async function refreshGameStats(): Promise<void> {
   try {
-    const [dailyCap, cardsSoldToday, jackpotPotWei, instantPoolWei] = await Promise.all([
-      publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "dailyCap" }),
-      publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "cardsSoldToday" }),
-      publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "jackpotPot" }),
-      publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "instantPool" }),
-    ]);
+    const main = await readGameStats(config.scratchCoreAddress);
+    let dailyCap = main.dailyCap;
+    let cardsSoldToday = main.cardsSoldToday;
+    let jackpotPotWei = main.jackpotPotWei;
+    let instantPoolWei = main.instantPoolWei;
+
+    if (config.whaleScratchCoreAddress) {
+      const whale = await readGameStats(config.whaleScratchCoreAddress);
+      dailyCap += whale.dailyCap;
+      cardsSoldToday += whale.cardsSoldToday;
+      jackpotPotWei += whale.jackpotPotWei;
+      instantPoolWei += whale.instantPoolWei;
+    }
+
     state.dailyCap = dailyCap.toString();
     state.cardsSoldToday = cardsSoldToday.toString();
     state.jackpotPotWei = jackpotPotWei.toString();
@@ -130,9 +162,12 @@ async function timestampFor(blockNumber: bigint): Promise<number> {
   return ms;
 }
 
-async function scanEvents(): Promise<void> {
-  const latest = await publicClient.getBlockNumber();
-  let chunkStart = state.lastScannedBlock !== null ? BigInt(state.lastScannedBlock) + 1n : SCRATCH_CORE_DEPLOY_BLOCK;
+/// Scans FloorPaid + Won for one ScratchCore address, from `cursorField`'s
+/// current position through `latest`, folding results into the shared
+/// state (wins feed, per-player totals, totalPaidOutWei) exactly like the
+/// main core always did — a Whale win is just another win once it's scanned.
+async function scanCore(address: `0x${string}`, deployBlock: bigint, cursorField: "lastScannedBlock" | "whaleLastScannedBlock", latest: bigint): Promise<void> {
+  let chunkStart = state[cursorField] != null ? BigInt(state[cursorField]!) + 1n : deployBlock;
   if (chunkStart > latest) return;
 
   while (chunkStart <= latest) {
@@ -141,11 +176,11 @@ async function scanEvents(): Promise<void> {
     let floorLogs, wonLogs;
     try {
       [floorLogs, wonLogs] = await Promise.all([
-        publicClient.getLogs({ address: config.scratchCoreAddress, event: floorPaidEvent, fromBlock: chunkStart, toBlock: chunkEnd }),
-        publicClient.getLogs({ address: config.scratchCoreAddress, event: wonEvent, fromBlock: chunkStart, toBlock: chunkEnd }),
+        publicClient.getLogs({ address, event: floorPaidEvent, fromBlock: chunkStart, toBlock: chunkEnd }),
+        publicClient.getLogs({ address, event: wonEvent, fromBlock: chunkStart, toBlock: chunkEnd }),
       ]);
     } catch (err) {
-      console.error(`[dashboard-cache] getLogs ${chunkStart}-${chunkEnd} failed, resuming next scan:`, err);
+      console.error(`[dashboard-cache] getLogs ${chunkStart}-${chunkEnd} (${address}) failed, resuming next scan:`, err);
       break;
     }
 
@@ -193,10 +228,18 @@ async function scanEvents(): Promise<void> {
       state.wins = [...newEntries.reverse(), ...state.wins].slice(0, MAX_WINS);
     }
 
-    state.lastScannedBlock = chunkEnd.toString();
+    state[cursorField] = chunkEnd.toString();
     saveState();
     chunkStart = chunkEnd + 1n;
     if (chunkStart <= latest) await new Promise((resolve) => setTimeout(resolve, config.dashboardScanChunkDelayMs));
+  }
+}
+
+async function scanEvents(): Promise<void> {
+  const latest = await publicClient.getBlockNumber();
+  await scanCore(config.scratchCoreAddress, SCRATCH_CORE_DEPLOY_BLOCK, "lastScannedBlock", latest);
+  if (config.whaleScratchCoreAddress) {
+    await scanCore(config.whaleScratchCoreAddress, config.whaleScratchCoreDeployBlock, "whaleLastScannedBlock", latest);
   }
 }
 

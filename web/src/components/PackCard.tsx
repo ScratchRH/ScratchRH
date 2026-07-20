@@ -14,6 +14,7 @@ const PACK_META: Record<CardType, { icon: string; ribbon: string }> = {
   Penny: { icon: "⭐", ribbon: "Starter" },
   Classic: { icon: "🎴", ribbon: "Most Popular" },
   Premium: { icon: "👑", ribbon: "High Roller" },
+  Whale: { icon: "🐋", ribbon: "Whale" },
 };
 
 export function PackCard({ cardType, priceUsd, selected, onSelect }: PackCardProps) {
