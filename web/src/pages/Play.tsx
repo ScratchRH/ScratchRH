@@ -302,7 +302,23 @@ export function Play() {
                 )}
               </div>
             ) : (
-              <div className="empty-state">Enter your address above to get payment instructions.</div>
+              <form
+                className="address-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitAddress(addressInput);
+                }}
+              >
+                <input
+                  className="address-input"
+                  placeholder="0x... the address you'll pay from"
+                  value={addressInput}
+                  onChange={(e) => setAddressInput(e.target.value)}
+                />
+                <button className="btn" type="submit">
+                  Start
+                </button>
+              </form>
             )
           ) : (
             <button className="btn" onClick={buy}>
