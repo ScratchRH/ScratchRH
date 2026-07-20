@@ -29,6 +29,13 @@ export const SCRATCH_TOKEN_ADDRESS = import.meta.env.VITE_SCRATCH_TOKEN_ADDRESS 
 const rawTokenDeployBlock = import.meta.env.VITE_SCRATCH_TOKEN_DEPLOY_BLOCK as string | undefined;
 export const SCRATCH_TOKEN_DEPLOY_BLOCK = rawTokenDeployBlock ? BigInt(rawTokenDeployBlock) : undefined;
 
+// The keeper's dashboard-cache HTTP API (keeper/src/server.ts) — it scans
+// chain history continuously server-side and serves the result as JSON, so
+// the Scoreboard and Leaderboard pages fetch instantly instead of every
+// visitor's browser re-scanning event history itself. Unset means those
+// pages fall back to demo mode, same as an unset SCRATCH_CORE_ADDRESS.
+export const KEEPER_API_URL = (import.meta.env.VITE_KEEPER_API_URL as string | undefined)?.replace(/\/$/, "");
+
 export const robinhoodChain = defineChain({
   id: CHAIN_ID,
   name: "Robinhood Chain",

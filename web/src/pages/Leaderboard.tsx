@@ -1,17 +1,18 @@
 import { formatEther } from "viem";
 import { LEADERBOARD } from "../lib/mockData";
 import { formatUsd, truncateAddress } from "../lib/format";
-import { SCRATCH_CORE_ADDRESS } from "../lib/chain";
-import { useEthUsdPrice } from "../lib/ethPrice";
+import { KEEPER_API_URL } from "../lib/chain";
+import { useScoreboardApi } from "../hooks/useScoreboardApi";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 
-const REAL_MODE = Boolean(SCRATCH_CORE_ADDRESS);
+const REAL_MODE = Boolean(KEEPER_API_URL);
 
 export function Leaderboard() {
-  const ethUsdPrice = useEthUsdPrice();
+  const scoreboard = useScoreboardApi(); // only used here for ethUsdPrice
   const realRows = useLeaderboard();
 
   const stillLoading = REAL_MODE && realRows === undefined;
+  const ethUsdPrice = scoreboard?.ethUsdPrice;
 
   const rows = REAL_MODE
     ? (realRows ?? []).map((row, i) => ({

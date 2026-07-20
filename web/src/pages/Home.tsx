@@ -6,16 +6,14 @@ import { WinsFeed } from "../components/WinsFeed";
 import { GLOBAL_STATS, generateMockWins, pullStock, rollTier } from "../lib/mockData";
 import { formatCountdown, msUntilNextUtcMidnight } from "../lib/gamification";
 import { formatUsd, truncateAddress } from "../lib/format";
-import { SCRATCH_CORE_ADDRESS } from "../lib/chain";
-import { useEthUsdPrice } from "../lib/ethPrice";
-import { useGameStats } from "../hooks/useGameStats";
-import { useWinsFeed } from "../hooks/useWinsFeed";
+import { KEEPER_API_URL } from "../lib/chain";
+import { symbolForStockToken } from "../lib/onchain";
+import { useScoreboardApi } from "../hooks/useScoreboardApi";
 import type { WinEntry } from "../lib/types";
 
-// Same real-mode switch Play.tsx uses — on the moment ScratchCore is
-// actually deployed, off otherwise (local dev with no .env, or contracts
-// not live yet).
-const REAL_MODE = Boolean(SCRATCH_CORE_ADDRESS);
+// On the moment the keeper's dashboard-cache API is configured, off
+// otherwise (local dev with no .env, or the keeper not deployed yet).
+const REAL_MODE = Boolean(KEEPER_API_URL);
 
 function useRestockCountdown(): string {
   const [remaining, setRemaining] = useState(() => msUntilNextUtcMidnight());
@@ -37,9 +35,7 @@ export function Home() {
   const countdown = useRestockCountdown();
 
   // --- real-mode-only state ---
-  const ethUsdPrice = useEthUsdPrice();
-  const gameStats = useGameStats();
-  const winsFeed = useWinsFeed();
+  const scoreboard = useScoreboardApi();
 
   useEffect(() => {
     if (REAL_MODE) return;
@@ -74,45 +70,44 @@ export function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Raw wei -> USD only once a live ETH price has actually loaded, so this
-  // doesn't flash "$0" on every mount before settling on the real number.
   const realWins: WinEntry[] = useMemo(() => {
-    if (ethUsdPrice === undefined) return [];
-    return winsFeed.entries.map((entry) => ({
+    if (!scoreboard || scoreboard.ethUsdPrice === undefined) return [];
+    const ethUsdPrice = scoreboard.ethUsdPrice;
+    return scoreboard.wins.map((entry) => ({
       id: entry.id,
       player: truncateAddress(entry.player),
       cardType: "Penny", // unused by WinsFeed's rendering — only tier/player/stockSymbol/amount/time are shown
       tier: entry.tier,
       amountUsd: Number(formatEther(entry.amountWei)) * ethUsdPrice,
-      stockSymbol: entry.stockSymbol,
+      stockSymbol: symbolForStockToken(entry.stockToken),
       timestamp: entry.timestamp,
       txHash: entry.txHash,
     }));
-  }, [winsFeed.entries, ethUsdPrice]);
+  }, [scoreboard]);
 
   const wins = REAL_MODE ? realWins : mockWins;
 
   const jackpotUsd = REAL_MODE
-    ? gameStats && ethUsdPrice !== undefined
-      ? Number(formatEther(gameStats.jackpotPotWei)) * ethUsdPrice
+    ? scoreboard?.jackpotPotWei !== undefined && scoreboard.ethUsdPrice !== undefined
+      ? Number(formatEther(scoreboard.jackpotPotWei)) * scoreboard.ethUsdPrice
       : 0
     : mockJackpotUsd;
 
   const totalPaidOutLabel = REAL_MODE
-    ? ethUsdPrice === undefined
+    ? !scoreboard || scoreboard.ethUsdPrice === undefined
       ? "…"
-      : formatUsd(Number(formatEther(winsFeed.totalPaidOutWei)) * ethUsdPrice)
+      : formatUsd(Number(formatEther(scoreboard.totalPaidOutWei)) * scoreboard.ethUsdPrice)
     : formatUsd(mockTotalPaidOutUsd);
 
   const cardsRemaining = REAL_MODE
-    ? gameStats
-      ? Number(gameStats.dailyCap - gameStats.cardsSoldToday)
+    ? scoreboard?.dailyCap !== undefined && scoreboard.cardsSoldToday !== undefined
+      ? Number(scoreboard.dailyCap - scoreboard.cardsSoldToday)
       : undefined
     : GLOBAL_STATS.dailyCap - GLOBAL_STATS.cardsSoldToday;
 
   const dailyCapLabel = REAL_MODE
-    ? gameStats
-      ? gameStats.dailyCap.toLocaleString()
+    ? scoreboard?.dailyCap !== undefined
+      ? scoreboard.dailyCap.toLocaleString()
       : "…"
     : GLOBAL_STATS.dailyCap.toLocaleString();
 
