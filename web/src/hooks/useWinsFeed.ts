@@ -44,6 +44,14 @@ const scratchedEvent = scratchCoreAbi.find((e) => e.type === "event" && e.name =
 let cachedState: WinsFeedState = { totalPaidOutWei: 0n, entries: [] };
 let lastScannedBlock: bigint | null = null;
 const blockTimestampCache = new Map<bigint, number>();
+const seenEntryIds = new Set<string>();
+// Guards against two scan() calls running at once — e.g. a scan that takes
+// longer than POLL_INTERVAL_MS to finish (setInterval doesn't wait for its
+// async callback), or two mounts sharing this module-level state. Without
+// it, two overlapping scans can both read the same lastScannedBlock before
+// either advances it, both fetch the same range, and both append the same
+// events — the visible symptom was duplicate rows in the live feed.
+let scanInFlight = false;
 
 /// Scans FloorPaid + Won since ScratchCore's deploy block to reconstruct a
 /// running paid-out total and a live wins feed — nothing on-chain tracks a
@@ -70,7 +78,16 @@ export function useWinsFeed(): WinsFeedState {
     }
 
     async function scan() {
-      if (cancelled) return;
+      if (cancelled || scanInFlight) return;
+      scanInFlight = true;
+      try {
+        await scanOnce();
+      } finally {
+        scanInFlight = false;
+      }
+    }
+
+    async function scanOnce() {
       const latest = await publicClient.getBlockNumber();
       let chunkStart = lastScannedBlock !== null ? lastScannedBlock + 1n : SCRATCH_CORE_DEPLOY_BLOCK;
       if (chunkStart > latest) return;
@@ -112,9 +129,17 @@ export function useWinsFeed(): WinsFeedState {
           const newEntries: RawWinEntry[] = [];
           let addedWei = 0n;
           for (const { log, tier, amountWei, stockToken } of combined) {
+            const id = `${log.transactionHash}-${log.logIndex}`;
+            // Defense in depth against re-processing the same event twice
+            // (e.g. a chunk boundary edge case) — scanInFlight above is the
+            // actual fix for the concurrent-scan case, this just makes sure
+            // a duplicate id can never reach the rendered feed either way.
+            if (seenEntryIds.has(id)) continue;
+            seenEntryIds.add(id);
+
             addedWei += amountWei;
             newEntries.push({
-              id: `${log.transactionHash}-${log.logIndex}`,
+              id,
               player: log.args.player as `0x${string}`,
               tier,
               stockSymbol: symbolForStockToken(stockToken),
