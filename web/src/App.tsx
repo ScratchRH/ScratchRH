@@ -1,6 +1,7 @@
 import { Route, Routes, useLocation } from "react-router-dom";
 import { AmbientGlow } from "./components/AmbientGlow";
 import { NavBar } from "./components/NavBar";
+import { TwitterTracker } from "./components/TwitterTracker";
 import { Splash } from "./pages/Splash";
 import { Landing } from "./pages/Landing";
 import { Home } from "./pages/Home";
@@ -21,6 +22,7 @@ function App() {
     <div className="app-shell">
       <AmbientGlow />
       {!isSplash && <NavBar />}
+      {!isSplash && <TwitterTracker />}
       <main>
         <div className={isSplash ? undefined : "container"}>
           <Routes>
