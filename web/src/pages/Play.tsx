@@ -58,6 +58,7 @@ export function Play() {
     return isLikelyAddress(remembered) ? remembered : undefined;
   });
   const [watchGeneration, setWatchGeneration] = useState(0);
+  const [amountCopied, setAmountCopied] = useState(false);
 
   const pickerRefs = useRef<Partial<Record<CardType, HTMLDivElement>>>({});
   const scratchAreaRef = useRef<HTMLDivElement>(null);
@@ -220,7 +221,17 @@ export function Play() {
               <div className="stack" style={{ gap: 8 }}>
                 <div className="holding-row">
                   <span>Send exactly</span>
-                  <span>{formatEther(CARD_PRICE_WEI[selected])} ETH</span>
+                  <button
+                    type="button"
+                    className="copy-value"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(formatEther(CARD_PRICE_WEI[selected]));
+                      setAmountCopied(true);
+                      window.setTimeout(() => setAmountCopied(false), 1500);
+                    }}
+                  >
+                    {amountCopied ? "Copied!" : `${formatEther(CARD_PRICE_WEI[selected])} ETH`}
+                  </button>
                 </div>
                 <div className="holding-row">
                   <span>To</span>

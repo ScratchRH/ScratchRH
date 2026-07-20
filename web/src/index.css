@@ -1283,6 +1283,24 @@ tr:last-child td {
   border-bottom: none;
 }
 
+.copy-value {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--border-bold);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.copy-value:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .empty-state {
   color: var(--fg-dim);
   font-size: 14px;
