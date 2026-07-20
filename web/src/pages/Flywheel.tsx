@@ -27,7 +27,7 @@ const NODES: FlywheelNode[] = [
     category: "core",
     x: 570,
     y: 246,
-    blurb: "Streak bonuses make paid packs better value — and a slice of every sale buys back $SCRATCH, whose own trading tax burns 10% of supply on every trade.",
+    blurb: "Streak bonuses make paid packs better value — a slice of every sale funds the treasury, and $SCRATCH's own trading tax separately burns 10% of supply on every trade.",
   },
   {
     id: "push",
@@ -78,14 +78,14 @@ export function Flywheel() {
         <p className="flywheel-intro">
           Unlike a casino, nobody leaves empty-handed — every card pays floor value in real stock, so even a "loss"
           grows your portfolio. The streak makes buying again worth it, rare pulls give the collection book meaning,
-          and the growing stack gives you news to check even on days you don't buy. Buying also buys back $SCRATCH,
-          whose own trading tax burns 10% of supply and funds the game's prize pools with the rest — see the splits
-          below.
+          and the growing stack gives you news to check even on days you don't buy. $SCRATCH feeds back into the
+          loop too — its own trading tax burns 10% of supply and funds the game's prize pools with the rest — see
+          the splits below.
         </p>
 
         <div className="flywheel-diagram">
           <svg className="flywheel-svg" viewBox="0 0 700 640" role="img" aria-label="Flywheel diagram">
-            <title>SCRATCH flywheel: streak compounds, buy cards (which also buys back and burns $SCRATCH), house pushes stock, portfolio and deck grow, wins get shared, back to streak compounds</title>
+            <title>SCRATCH flywheel: streak compounds, buy cards, house pushes stock, portfolio and deck grow, wins get shared, back to streak compounds</title>
             <defs>
               <marker id="flywheel-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="rgba(214, 221, 216, 0.55)" />
@@ -137,16 +137,18 @@ export function Flywheel() {
           change it once it's live.
         </p>
         <FundSplitBar />
-      </div>
 
-      <div className="panel">
-        <div className="panel-title">Where every $SCRATCH trade goes</div>
-        <p className="flywheel-intro">
-          A separate split from the one above — this taxes $SCRATCH's own trading, not card sales. $SCRATCH holders
-          get none of it as dividends: trading the token funds the game's prize pools directly and shrinks the
-          token's own supply, instead of paying passive holders.
-        </p>
-        <FundSplitBar segments={TOKEN_TAX_SPLIT} />
+        <div className="pack-details-split">
+          <div className="pack-details-stat-label" style={{ marginBottom: 10 }}>
+            Where every $SCRATCH trade goes
+          </div>
+          <p className="flywheel-intro">
+            A separate split from the one above — this taxes $SCRATCH's own trading, not card sales. $SCRATCH
+            holders get none of it as dividends: trading the token funds the game's prize pools directly and
+            shrinks the token's own supply, instead of paying passive holders.
+          </p>
+          <FundSplitBar segments={TOKEN_TAX_SPLIT} />
+        </div>
       </div>
 
       <div className="panel">

@@ -16,13 +16,12 @@ export interface FundSplitSegment {
   note: string;
 }
 
-/** Mirrors ScratchCore's FLOOR_BPS / INSTANT_POOL_BPS / JACKPOT_BPS / RAKE_BPS — every ticket splits this way, locked into the contract at deploy. The 10% rake itself is split again 50/50 by RakeRouter's OPS_BPS / BUYBACK_BPS. */
+/** Mirrors ScratchCore's FLOOR_BPS / INSTANT_POOL_BPS / JACKPOT_BPS / RAKE_BPS — every ticket splits this way, locked into the contract at deploy. The 10% rake goes straight to treasury. */
 export const FUND_SPLIT: FundSplitSegment[] = [
   { label: "Floor prize", bps: 4000, colorVar: "var(--green)", note: "Paid to you immediately as stock — every card wins this" },
   { label: "Instant pool", bps: 4000, colorVar: "var(--blue)", note: "Funds the tiered instant prizes" },
   { label: "Jackpot", bps: 1000, colorVar: "var(--purple)", note: "Rolls over — 30% stays in the pot even when it's hit" },
-  { label: "Ops", bps: 500, colorVar: "var(--fg-dim)", note: "Keeps the lights on" },
-  { label: "$SCRATCH buyback", bps: 500, colorVar: "var(--red)", note: "Market-buys $SCRATCH every sweep" },
+  { label: "Treasury", bps: 1000, colorVar: "var(--fg-dim)", note: "Keeps the lights on" },
 ];
 
 /** Mirrors $SCRATCH's own Flap launch tax split (script/LaunchScratchToken.s.sol) — a

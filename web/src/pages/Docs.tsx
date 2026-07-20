@@ -136,8 +136,9 @@ export function Docs() {
             <li><strong>10%</strong> — automatic buyback-and-burn via Flap's native deflation</li>
           </ul>
           <p className="docs-p">
-            No holder dividends. Card-sale rake separately buys $SCRATCH via RakeRouter, creating independent
-            buy pressure on every card sold.
+            No holder dividends. This is a separate stream from card-sale rake (the 10% ops cut described under
+            Prize structure above) — that goes straight to treasury; this tax only applies to $SCRATCH's own
+            trading.
           </p>
         </div>
 
@@ -154,7 +155,6 @@ export function Docs() {
             <div className="docs-address-row"><span>PrizeConverter</span><code className="docs-code docs-addr">0x51f15eEa8Ac4DAbf0D39ca01958dCf079869F20D</code></div>
             <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">0xF2D100b04e3CE8B74fa48eb202d3d4F7e812E2f2</code></div>
             <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">0x372b0a558816Eb0dD521b2C2Fc78018a61663a64</code></div>
-            <div className="docs-address-row"><span>RakeRouter</span><code className="docs-code docs-addr">deploy pending</code></div>
           </div>
         </div>
 
