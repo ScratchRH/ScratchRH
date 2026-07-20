@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { publicClient, SCRATCH_CORE_ADDRESS } from "../lib/chain";
 import { scratchCoreAbi } from "../lib/scratchCoreAbi";
 
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS = 2000;
 
 export type TicketWatchStatus =
   | { phase: "idle" }

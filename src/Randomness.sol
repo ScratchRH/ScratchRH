@@ -8,8 +8,20 @@ pragma solidity ^0.8.24;
 /// controls block production, so this inherits sequencer trust — disclose
 /// that in the site's vault-notes panel. Upgrade to VRF before any single
 /// jackpot exceeds ~$5k.
+///
+/// REVEAL_DELAY=1 (confirmed live 2026-07-20: block.number here tracks the
+/// L1's ~12s cadence, not this chain's own ~95ms blocks, so even 1 block is
+/// a real double-digit-second wait) is the minimum that still gives any
+/// unpredictability at all — block N+1's hash isn't knowable while a
+/// purchase lands in block N. It does not change the trust model versus a
+/// larger delay: the sequencer already controls all block production and
+/// could bias block N+1 same as any other, the same residual risk this
+/// contract's own docs already accept "at small jackpot sizes." A larger
+/// delay only narrows how many candidate blocks a colluding sequencer could
+/// grind through, a marginal difference at this game's prize sizes — not
+/// worth 2-3x the reveal latency for.
 contract Randomness {
-    uint256 public constant REVEAL_DELAY = 3;
+    uint256 public constant REVEAL_DELAY = 1;
 
     address public immutable consumer;
 

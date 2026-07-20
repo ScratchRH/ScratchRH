@@ -115,7 +115,7 @@ export function Docs() {
           <h2 className="docs-h2">Randomness</h2>
           <p className="docs-p">
             Outcomes use future-blockhash randomness via <code className="docs-code">Randomness.sol</code>. When
-            you buy a card, a reveal is scheduled 3 blocks ahead. The keeper calls{" "}
+            you buy a card, a reveal is scheduled 1 block ahead. The keeper calls{" "}
             <code className="docs-code">fulfill()</code> once that block is past — anyone can call it.
             The revealed blockhash seeds both the prize tier and the stock pull in one operation.
           </p>

@@ -132,14 +132,42 @@ contract DeployScratchCore is Script {
         external
         returns (PrizeConverter converter, Randomness randomness, ScratchCore core, TokenTaxRouter taxRouter)
     {
+        vm.startBroadcast();
+        converter = new PrizeConverter(IPoolManager(V4_POOL_MANAGER), IWETH(WETH), OWNER);
+        (randomness, core, taxRouter) = _deployRest(converter);
+        vm.stopBroadcast();
+    }
+
+    /// Redeploys Randomness -> ScratchCore -> TokenTaxRouter against an
+    /// ALREADY-deployed, ALREADY-configured PrizeConverter — for when only
+    /// something downstream of the converter changed (e.g. Randomness's
+    /// REVEAL_DELAY) and the converter's six routes don't need touching
+    /// again. Skips configureRoutes() entirely; the reused converter is
+    /// already live.
+    function runWithExistingConverter(address existingConverter)
+        external
+        returns (PrizeConverter converter, Randomness randomness, ScratchCore core, TokenTaxRouter taxRouter)
+    {
+        require(existingConverter != address(0), "existingConverter not set");
+        require(existingConverter.code.length != 0, "existingConverter has no code");
+        converter = PrizeConverter(payable(existingConverter));
+
+        vm.startBroadcast();
+        (randomness, core, taxRouter) = _deployRest(converter);
+        vm.stopBroadcast();
+    }
+
+    /// Shared by run() and runWithExistingConverter() — must be called
+    /// inside an active vm.startBroadcast()/stopBroadcast() block.
+    function _deployRest(PrizeConverter converter)
+        internal
+        returns (Randomness randomness, ScratchCore core, TokenTaxRouter taxRouter)
+    {
         require(OWNER != address(0), "OWNER not set");
         require(RAKE_RECIPIENT != address(0), "RAKE_RECIPIENT not set");
         require(DAILY_CAP != 0, "DAILY_CAP not set");
 
-        vm.startBroadcast();
         address deployer = msg.sender;
-
-        converter = new PrizeConverter(IPoolManager(V4_POOL_MANAGER), IWETH(WETH), OWNER);
 
         address predictedCore = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 1);
         randomness = new Randomness(predictedCore);
@@ -157,8 +185,6 @@ contract DeployScratchCore is Script {
         require(address(core) == predictedCore, "address prediction drifted");
 
         taxRouter = new TokenTaxRouter(core, OPS_ADDRESS);
-
-        vm.stopBroadcast();
     }
 
     /// Owner-only follow-up: populates all six routes on an already-deployed

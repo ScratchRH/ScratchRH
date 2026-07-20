@@ -13,7 +13,7 @@ export const config = {
   scratchCoreAddress: required("SCRATCH_CORE_ADDRESS") as `0x${string}`,
   randomnessAddress: required("RANDOMNESS_ADDRESS") as `0x${string}`,
 
-  pollIntervalMs: Number(process.env.POLL_INTERVAL_MS ?? 4000),
+  pollIntervalMs: Number(process.env.POLL_INTERVAL_MS ?? 2000),
   stateFile: process.env.STATE_FILE ?? "./keeper-state.json",
   buyLookbackBlocks: BigInt(process.env.BUY_LOOKBACK_BLOCKS ?? "10000"),
 
