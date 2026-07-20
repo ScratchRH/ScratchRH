@@ -1,15 +1,15 @@
 import { parseEventLogs, type Log, type TransactionReceipt } from "viem";
 import { config } from "./config.js";
 import { publicClient, walletClient } from "./chain.js";
-import { scratchCoreAbi, randomnessAbi } from "./abi.js";
+import { scratchCoreAbi, boughtEvent, randomnessAbi } from "./abi.js";
 import { loadState, saveState, type KeeperState } from "./state.js";
 import { maybePostWin } from "./socialBot.js";
 
 const TIER_JACKPOT = 5;
 
-// The ABIs are loaded from Foundry's JSON output at runtime rather than as
-// `const` literals, so viem can't statically narrow parseEventLogs's return
-// type — decode into this minimal shape instead of fighting the generics.
+// abi.ts's exports are readonly tuples (`as const`), not plain `Abi`, so
+// parseEventLogs's generics don't line up cleanly here — decode into this
+// minimal shape instead of fighting them.
 type DecodedLog = Log & { eventName: string; args: Record<string, unknown> };
 function decodeLogs(abi: unknown, logs: Log[]): DecodedLog[] {
   return parseEventLogs({ abi: abi as [], logs }) as unknown as DecodedLog[];
@@ -40,7 +40,7 @@ async function pollForNewTickets(state: KeeperState): Promise<KeeperState> {
 
   const logs = await publicClient.getLogs({
     address: config.scratchCoreAddress,
-    event: scratchCoreAbi.find((e: { type: string; name?: string }) => e.type === "event" && e.name === "Bought"),
+    event: boughtEvent,
     fromBlock,
     toBlock,
   });
@@ -98,21 +98,30 @@ async function processPendingTickets(state: KeeperState): Promise<KeeperState> {
     });
 
     if (!revealable) {
+      // isRevealable/isExpired both require !fulfilled, so a ticket someone
+      // else already resolved (another keeper instance racing, or manual
+      // intervention) reads as neither revealable nor expired — check
+      // fulfilled explicitly, or a resolved ticket sits in pendingTicketIds
+      // forever, re-checked (and re-persisted) every single poll.
+      const [, fulfilled] = await publicClient.readContract({
+        address: config.randomnessAddress,
+        abi: randomnessAbi,
+        functionName: "requests",
+        args: [ticketId],
+      });
+      if (fulfilled) continue;
+
       const expired = await publicClient.readContract({
         address: config.randomnessAddress,
         abi: randomnessAbi,
         functionName: "isExpired",
         args: [ticketId],
       });
-      if (expired) {
-        if (!warnedExpired.has(idStr)) {
-          console.warn(`[reveal-watcher] ticket ${idStr} blockhash expired and cannot be rerolled — stuck.`);
-          warnedExpired.add(idStr);
-        }
-        stillPending.push(idStr);
-      } else {
-        stillPending.push(idStr);
+      if (expired && !warnedExpired.has(idStr)) {
+        console.warn(`[reveal-watcher] ticket ${idStr} blockhash expired and cannot be rerolled — stuck.`);
+        warnedExpired.add(idStr);
       }
+      stillPending.push(idStr);
       continue;
     }
 
