@@ -88,6 +88,13 @@ export const scratchCoreAbi = [
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    type: "function",
+    name: "instantPool",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const;
 
 // WETH/USDG Uniswap V3 pool on Robinhood Chain mainnet — same pool and math

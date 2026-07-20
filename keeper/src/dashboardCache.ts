@@ -38,6 +38,7 @@ interface DashboardState {
   dailyCap: string | undefined;
   cardsSoldToday: string | undefined;
   jackpotPotWei: string | undefined;
+  instantPoolWei: string | undefined;
   gameStatsUpdatedAt: number | undefined;
   totalPaidOutWei: string;
   wins: DashboardWinEntry[]; // newest first, capped at MAX_WINS
@@ -52,6 +53,7 @@ function emptyState(): DashboardState {
     dailyCap: undefined,
     cardsSoldToday: undefined,
     jackpotPotWei: undefined,
+    instantPoolWei: undefined,
     gameStatsUpdatedAt: undefined,
     totalPaidOutWei: "0",
     wins: [],
@@ -97,14 +99,16 @@ async function refreshEthPrice(): Promise<void> {
 
 async function refreshGameStats(): Promise<void> {
   try {
-    const [dailyCap, cardsSoldToday, jackpotPotWei] = await Promise.all([
+    const [dailyCap, cardsSoldToday, jackpotPotWei, instantPoolWei] = await Promise.all([
       publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "dailyCap" }),
       publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "cardsSoldToday" }),
       publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "jackpotPot" }),
+      publicClient.readContract({ address: config.scratchCoreAddress, abi: scratchCoreAbi, functionName: "instantPool" }),
     ]);
     state.dailyCap = dailyCap.toString();
     state.cardsSoldToday = cardsSoldToday.toString();
     state.jackpotPotWei = jackpotPotWei.toString();
+    state.instantPoolWei = instantPoolWei.toString();
     state.gameStatsUpdatedAt = Date.now();
   } catch (err) {
     console.error("[dashboard-cache] game stats refresh failed:", err);
@@ -215,6 +219,7 @@ export function getScoreboardSnapshot() {
     dailyCap: state.dailyCap,
     cardsSoldToday: state.cardsSoldToday,
     jackpotPotWei: state.jackpotPotWei,
+    instantPoolWei: state.instantPoolWei,
     gameStatsUpdatedAt: state.gameStatsUpdatedAt,
     totalPaidOutWei: state.totalPaidOutWei,
     wins: state.wins,
