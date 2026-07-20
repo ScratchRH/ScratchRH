@@ -17,6 +17,16 @@ export const config = {
   stateFile: process.env.STATE_FILE ?? "./keeper-state.json",
   buyLookbackBlocks: BigInt(process.env.BUY_LOOKBACK_BLOCKS ?? "10000"),
 
+  // Many RPC providers cap eth_getLogs to a narrow block range on free
+  // tiers — Alchemy's free tier is 10. Default conservatively so the
+  // keeper works out of the box there; raise it if your provider allows
+  // wider ranges. logsChunkDelayMs is a small pause between chunk requests
+  // so a large BUY_LOOKBACK_BLOCKS catch-up scan (1000 chunked requests at
+  // the default sizes) doesn't burst past a free tier's requests-per-second
+  // limit too.
+  logsChunkSize: BigInt(process.env.LOGS_CHUNK_SIZE ?? "10"),
+  logsChunkDelayMs: Number(process.env.LOGS_CHUNK_DELAY_MS ?? 150),
+
   x: {
     apiKey: process.env.X_API_KEY ?? "",
     apiSecret: process.env.X_API_SECRET ?? "",

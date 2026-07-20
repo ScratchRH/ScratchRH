@@ -32,28 +32,56 @@ export async function initState(): Promise<KeeperState> {
   return emptyState(start);
 }
 
-/// Scans for new Bought events since the last checkpoint and adds them to the pending queue.
+/// Scans for new Bought events since the last checkpoint and adds them to the
+/// pending queue. Chunked at config.logsChunkSize rather than one
+/// fromBlock->toBlock call spanning the whole gap — free-tier RPC providers
+/// (Alchemy's is 10 blocks) reject a wider eth_getLogs range outright, and
+/// on first run that gap is the full BUY_LOOKBACK_BLOCKS. Each chunk's
+/// result is folded into the running state immediately, not just returned
+/// at the end, so a later chunk failing (rate limit, transient network
+/// error) doesn't discard progress already made this call — the next poll
+/// just resumes from lastProcessedBlock rather than re-scanning from
+/// scratch or, worse, getting stuck re-requesting the same too-wide range
+/// forever (that was the actual bug: a failed call never reached
+/// saveState(), so lastProcessedBlock stayed pinned while toBlock kept
+/// growing every poll, guaranteeing every future call was equally too wide).
 async function pollForNewTickets(state: KeeperState): Promise<KeeperState> {
-  const fromBlock = BigInt(state.lastProcessedBlock) + 1n;
   const toBlock = await publicClient.getBlockNumber();
-  if (fromBlock > toBlock) return state;
-
-  const logs = await publicClient.getLogs({
-    address: config.scratchCoreAddress,
-    event: boughtEvent,
-    fromBlock,
-    toBlock,
-  });
-
-  const decoded = decodeLogs(scratchCoreAbi, logs);
-  const newTicketIds = decoded
-    .filter((log) => log.eventName === "Bought")
-    .map((log) => (log.args.ticketId as bigint).toString());
+  let lastProcessedBlock = BigInt(state.lastProcessedBlock);
+  let chunkStart = lastProcessedBlock + 1n;
+  if (chunkStart > toBlock) return state;
 
   const pending = new Set(state.pendingTicketIds);
-  for (const id of newTicketIds) pending.add(id);
 
-  return { ...state, lastProcessedBlock: toBlock.toString(), pendingTicketIds: [...pending] };
+  while (chunkStart <= toBlock) {
+    const chunkEnd = chunkStart + config.logsChunkSize - 1n < toBlock ? chunkStart + config.logsChunkSize - 1n : toBlock;
+
+    let logs;
+    try {
+      logs = await publicClient.getLogs({
+        address: config.scratchCoreAddress,
+        event: boughtEvent,
+        fromBlock: chunkStart,
+        toBlock: chunkEnd,
+      });
+    } catch (err) {
+      console.error(
+        `[reveal-watcher] getLogs ${chunkStart}-${chunkEnd} failed, resuming next poll: ${(err as Error).message.split("\n")[0]}`,
+      );
+      break;
+    }
+
+    const decoded = decodeLogs(scratchCoreAbi, logs);
+    for (const log of decoded) {
+      if (log.eventName === "Bought") pending.add((log.args.ticketId as bigint).toString());
+    }
+
+    lastProcessedBlock = chunkEnd;
+    chunkStart = chunkEnd + 1n;
+    if (chunkStart <= toBlock) await new Promise((resolve) => setTimeout(resolve, config.logsChunkDelayMs));
+  }
+
+  return { ...state, lastProcessedBlock: lastProcessedBlock.toString(), pendingTicketIds: [...pending] };
 }
 
 function extractWin(ticketId: bigint, receipt: TransactionReceipt) {
