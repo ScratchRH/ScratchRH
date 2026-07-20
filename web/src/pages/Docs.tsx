@@ -151,10 +151,10 @@ export function Docs() {
           </p>
           <p className="docs-p">Contract addresses (Robinhood Chain, chain ID 4663):</p>
           <div className="docs-addresses">
-            <div className="docs-address-row"><span>ScratchCore</span><code className="docs-code docs-addr">0x0b2d05f1E9bd5A09eFdA824Cc556A42B1F0E05aA</code></div>
+            <div className="docs-address-row"><span>ScratchCore</span><code className="docs-code docs-addr">0x78f4c05926CE2858a455995f265dB2df777325C0</code></div>
             <div className="docs-address-row"><span>PrizeConverter</span><code className="docs-code docs-addr">0x51f15eEa8Ac4DAbf0D39ca01958dCf079869F20D</code></div>
-            <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">0xF2D100b04e3CE8B74fa48eb202d3d4F7e812E2f2</code></div>
-            <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">0x372b0a558816Eb0dD521b2C2Fc78018a61663a64</code></div>
+            <div className="docs-address-row"><span>Randomness</span><code className="docs-code docs-addr">0x7a963D699427D80a582B3b0391DeA2C8d1D6EF45</code></div>
+            <div className="docs-address-row"><span>TokenTaxRouter</span><code className="docs-code docs-addr">0x760F117668011C05c7A073e4F8FE0dcE660bE8dA</code></div>
           </div>
         </div>
 
