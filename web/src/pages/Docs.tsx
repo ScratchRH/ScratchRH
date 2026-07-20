@@ -73,9 +73,9 @@ export function Docs() {
                 <tr><th>Type</th><th>Price (ETH)</th><th>Floor prize</th><th>Jackpot entries</th></tr>
               </thead>
               <tbody>
-                <tr><td>Penny</td><td>0.001 ETH</td><td>~$0.40 in stock</td><td>None</td></tr>
-                <tr><td>Classic</td><td>0.005 ETH</td><td>~$2.00 in stock</td><td>1</td></tr>
-                <tr><td>Premium</td><td>0.01 ETH</td><td>~$4.00 in stock</td><td>2</td></tr>
+                <tr><td>Penny</td><td>0.00054 ETH</td><td>~$0.40 in stock</td><td>None</td></tr>
+                <tr><td>Classic</td><td>0.0027 ETH</td><td>~$2.00 in stock</td><td>1</td></tr>
+                <tr><td>Premium</td><td>0.0054 ETH</td><td>~$4.00 in stock</td><td>2</td></tr>
               </tbody>
             </table>
           </div>

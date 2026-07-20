@@ -245,13 +245,15 @@ contract DeployScratchCore is Script {
         deck[5] = ScratchCore.DeckEntry({token: PLTR, weightBps: 50});
     }
 
-    /// Same 1:5:10 ratio as the $1/$5/$10 pricing in SPEC.md §2 — not a live
-    /// USD conversion, tune before mainnet. A future season with a
-    /// different lineup is a new deploy-script run with different numbers
-    /// here, not a Solidity edit to ScratchCore itself.
+    /// Same 1:5:10 ratio as the $1/$5/$10 pricing in SPEC.md §2. Repriced
+    /// 2026-07-20 against the live WETH/USDG pool rate (~$1863/ETH) so the
+    /// advertised $1/$5/$10 actually holds at deploy time; ETH prices are
+    /// still fixed wei amounts so this drifts again as ETH/USD moves — a new
+    /// deploy-script run with different numbers here is the fix, not a
+    /// Solidity edit to ScratchCore itself.
     function _cardConfigs() internal pure returns (ScratchCore.CardConfig[3] memory cfg) {
-        cfg[0] = ScratchCore.CardConfig({price: 0.001 ether, jackpotEntries: 0}); // Penny
-        cfg[1] = ScratchCore.CardConfig({price: 0.005 ether, jackpotEntries: 1}); // Classic
-        cfg[2] = ScratchCore.CardConfig({price: 0.01 ether, jackpotEntries: 2}); // Premium
+        cfg[0] = ScratchCore.CardConfig({price: 0.00054 ether, jackpotEntries: 0}); // Penny
+        cfg[1] = ScratchCore.CardConfig({price: 0.0027 ether, jackpotEntries: 1}); // Classic
+        cfg[2] = ScratchCore.CardConfig({price: 0.0054 ether, jackpotEntries: 2}); // Premium
     }
 }

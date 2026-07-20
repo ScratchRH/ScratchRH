@@ -33,9 +33,9 @@ export function tierFromOnchain(value: number): Tier {
 // the receive() fallback infers CardType from one of these three exact
 // values, so a real payment has to match to the wei.
 export const CARD_PRICE_WEI: Record<CardType, bigint> = {
-  Penny: parseEther("0.001"),
-  Classic: parseEther("0.005"),
-  Premium: parseEther("0.01"),
+  Penny: parseEther("0.00054"),
+  Classic: parseEther("0.0027"),
+  Premium: parseEther("0.0054"),
 };
 
 export function isLikelyAddress(value: string): value is `0x${string}` {
