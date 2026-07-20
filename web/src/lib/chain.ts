@@ -13,6 +13,13 @@ const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? 4663);
 // mode" rather than trying to point at nothing.
 export const SCRATCH_CORE_ADDRESS = import.meta.env.VITE_SCRATCH_CORE_ADDRESS as `0x${string}` | undefined;
 
+// Block ScratchCore was created at — start of the range event-scanning
+// (Scoreboard's paid-out total, live wins feed) needs to cover. Update this
+// alongside VITE_SCRATCH_CORE_ADDRESS whenever ScratchCore gets redeployed;
+// a stale value just means re-scanning a few thousand already-empty blocks,
+// not a correctness bug, but keeping it close keeps that scan fast.
+export const SCRATCH_CORE_DEPLOY_BLOCK = 14_794_301n;
+
 export const robinhoodChain = defineChain({
   id: CHAIN_ID,
   name: "Robinhood Chain",

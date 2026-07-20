@@ -34,6 +34,37 @@ export const scratchCoreAbi = [
     ],
   },
   {
+    type: "event",
+    name: "FloorPaid",
+    inputs: [
+      { name: "ticketId", type: "uint256", indexed: true },
+      { name: "player", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "stockToken", type: "address", indexed: false },
+    ],
+  },
+  {
+    type: "function",
+    name: "dailyCap",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "cardsSoldToday",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "jackpotPot",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
     type: "function",
     name: "buyBatch",
     stateMutability: "payable",
