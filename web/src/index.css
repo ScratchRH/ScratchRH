@@ -512,65 +512,6 @@ tr:last-child td {
   padding: 10px 4px 4px;
 }
 
-.batch-stepper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 4px 0;
-}
-
-.batch-stepper-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg-dim);
-  flex: 1;
-}
-
-.batch-stepper-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 2px solid var(--border-bold);
-  background: var(--bg-panel-raised);
-  color: var(--ink);
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.batch-stepper-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.batch-stepper-btn:not(:disabled):hover {
-  background: var(--bg-hover);
-  border-color: var(--accent);
-}
-
-.batch-stepper-count {
-  font-size: 18px;
-  font-weight: 700;
-  min-width: 24px;
-  text-align: center;
-  color: var(--ink);
-}
-
-.batch-progress {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--fg-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 8px;
-  text-align: center;
-}
-
 .pack-wrap {
   position: relative;
 }
