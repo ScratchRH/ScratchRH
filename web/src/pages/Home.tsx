@@ -133,7 +133,7 @@ export function Home() {
           sub="Cumulative floor + instant + jackpot"
           accent
         />
-        <StatTile label="Instant Pool" value={instantPoolLabel} sub="Funds the 1x-10x instant-win tiers" />
+        <StatTile label="Instant Pool" value={instantPoolLabel} sub="Funds the 1x-10x instant-win tiers" accent />
         <StatTile
           label="Cards Remaining Today"
           value={cardsRemaining === undefined ? "…" : cardsRemaining.toLocaleString()}
