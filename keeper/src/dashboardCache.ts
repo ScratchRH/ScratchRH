@@ -5,7 +5,8 @@ import { scratchCoreAbi, floorPaidEvent, wonEvent, slot0Abi } from "./abi.js";
 
 // Same value as web/src/lib/chain.ts's SCRATCH_CORE_DEPLOY_BLOCK — update
 // both alongside SCRATCH_CORE_ADDRESS whenever ScratchCore gets redeployed.
-const SCRATCH_CORE_DEPLOY_BLOCK = 14_794_301n;
+// Exported for portfolio.ts's own on-demand per-address scans.
+export const SCRATCH_CORE_DEPLOY_BLOCK = 14_794_301n;
 
 const WETH_USDG_POOL = "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca" as const;
 const DECIMALS_ADJUST = 12n; // WETH 18 decimals - USDG 6 decimals
