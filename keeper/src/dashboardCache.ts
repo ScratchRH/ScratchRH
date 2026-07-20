@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { publicClient } from "./chain.js";
+import { dashboardPublicClient as publicClient } from "./chain.js";
 import { config } from "./config.js";
 import { scratchCoreAbi, floorPaidEvent, wonEvent, slot0Abi } from "./abi.js";
 

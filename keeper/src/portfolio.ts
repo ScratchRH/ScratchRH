@@ -1,4 +1,4 @@
-import { publicClient } from "./chain.js";
+import { dashboardPublicClient as publicClient } from "./chain.js";
 import { config } from "./config.js";
 import { floorPaidEvent, wonEvent } from "./abi.js";
 import { SCRATCH_CORE_DEPLOY_BLOCK } from "./dashboardCache.js";

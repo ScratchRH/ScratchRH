@@ -20,6 +20,18 @@ export const publicClient = createPublicClient({
   transport: http(config.rpcUrl),
 });
 
+// Separate client for dashboardCache.ts/portfolio.ts's wide-range historical
+// getLogs scans — config.rpcUrl is commonly a free-tier Alchemy endpoint
+// (RPC_URL was set there to dodge a Cloudflare 403 on broadcast writes,
+// unrelated to reads), which hard-caps eth_getLogs at 10 blocks and would
+// make DASHBOARD_SCAN_CHUNK_BLOCKS's much wider default fail every request.
+// The public RPC has handled wide ranges fine everywhere else this was
+// tried, so it's the default here regardless of what RPC_URL points at.
+export const dashboardPublicClient = createPublicClient({
+  chain: robinhoodChain,
+  transport: http(config.dashboardRpcUrl),
+});
+
 export const walletClient = createWalletClient({
   account,
   chain: robinhoodChain,
