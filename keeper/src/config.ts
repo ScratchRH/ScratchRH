@@ -32,10 +32,12 @@ export const config = {
   logsChunkDelayMs: Number(process.env.LOGS_CHUNK_DELAY_MS ?? 150),
 
   // How often to check TokenTaxRouter's balance and sweep() it if nonzero.
-  // Trading tax isn't time-sensitive the way reveals are, so this runs far
-  // less often than pollIntervalMs — no reason to hammer the RPC checking a
-  // balance that only moves when someone trades $SCRATCH.
-  sweepIntervalMs: Number(process.env.SWEEP_INTERVAL_MS ?? 300_000),
+  // Tight early on deliberately — right after launch the prize pools start
+  // at zero, so getting trading tax into fundPools() quickly actually
+  // matters for being able to pay out. sweep() is a no-op cost-wise when
+  // the balance is 0 (checked before simulating/sending anything), so
+  // polling this often isn't wasteful the way it would be for a real tx.
+  sweepIntervalMs: Number(process.env.SWEEP_INTERVAL_MS ?? 30_000),
 
   x: {
     apiKey: process.env.X_API_KEY ?? "",
