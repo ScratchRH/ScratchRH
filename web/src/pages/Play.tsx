@@ -269,6 +269,10 @@ export function Play() {
                   <span className="pending-spinner" />
                   Payment received — waiting for reveal…
                 </div>
+                <p style={{ color: "var(--fg-dim)", fontSize: 13, fontWeight: 600, margin: 0, textAlign: "center" }}>
+                  Usually 10-30 seconds — the reveal waits on a future block for fairness, so nobody (including us)
+                  can know the outcome ahead of time.
+                </p>
               </div>
             ) : displayActive ? (
               <>
