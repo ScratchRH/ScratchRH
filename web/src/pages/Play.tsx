@@ -7,10 +7,11 @@ import { ScratchCard } from "../components/ScratchCard";
 import { CARD_CONFIGS, pullStock, rollTier, tierPayoutUsd } from "../lib/mockData";
 import { FundSplitBar } from "../components/FundSplitBar";
 import { xpForCard } from "../lib/gamification";
-import { formatUsd } from "../lib/format";
+import { formatUsd, truncateAddress } from "../lib/format";
 import { getRememberedAddress, rememberAddress } from "../lib/rememberedAddress";
 import { SCRATCH_CORE_ADDRESS } from "../lib/chain";
 import { CARD_PRICE_WEI, cardTypeFromOnchain, isLikelyAddress, symbolForStockToken, tierFromOnchain } from "../lib/onchain";
+import { connectWallet, ensureRobinhoodChain, hasInjectedWallet, sendBuyBatch } from "../lib/wallet";
 import { useTicketWatcher } from "../hooks/useTicketWatcher";
 import type { CardType, Tier } from "../lib/types";
 
@@ -40,11 +41,16 @@ const PENDING_PAYMENT_MS = 1400;
 // local demo of the odds and payout math with no wallet, no RPC, nothing.
 const REAL_MODE = Boolean(SCRATCH_CORE_ADDRESS);
 
+const CARD_TYPE_INDEX: Record<CardType, number> = { Penny: 0, Classic: 1, Premium: 2 };
+const MAX_BATCH = 5;
+
 export function Play() {
   const [selected, setSelected] = useState<CardType>("Classic");
+  const [count, setCount] = useState(1);
 
   // --- demo-mode-only state ---
   const [active, setActive] = useState<ActiveCard | null>(null);
+  const [demoQueue, setDemoQueue] = useState<ActiveCard[]>([]);
   const [flight, setFlight] = useState<Flight | null>(null);
   const [pendingCardType, setPendingCardType] = useState<CardType | null>(null);
 
@@ -60,11 +66,24 @@ export function Play() {
   const [watchGeneration, setWatchGeneration] = useState(0);
   const [amountCopied, setAmountCopied] = useState(false);
 
+  // --- batch (count > 1) only: needs a real wallet connection, since
+  // buyBatch() needs actual calldata a plain ETH transfer can't carry.
+  // Single-card buys never touch any of this.
+  const [connectedWallet, setConnectedWallet] = useState<`0x${string}` | undefined>();
+  const [connecting, setConnecting] = useState(false);
+  const [buying, setBuying] = useState(false);
+  const [walletError, setWalletError] = useState<string | undefined>();
+
+  const [currentTicketIdx, setCurrentTicketIdx] = useState(0);
+
   const pickerRefs = useRef<Partial<Record<CardType, HTMLDivElement>>>({});
   const scratchAreaRef = useRef<HTMLDivElement>(null);
 
-  const ticketStatuses = useTicketWatcher(REAL_MODE ? watchedAddress : undefined, watchGeneration);
-  const ticketStatus = ticketStatuses[0] ?? { phase: "idle" as const };
+  // Single-card buys watch whatever address the player typed in; batch buys
+  // watch the connected wallet, since that's the actual on-chain sender.
+  const effectiveWatchedAddress = count === 1 ? watchedAddress : connectedWallet;
+  const ticketStatuses = useTicketWatcher(REAL_MODE ? effectiveWatchedAddress : undefined, watchGeneration, count);
+  const ticketStatus = ticketStatuses[currentTicketIdx] ?? { phase: "idle" as const };
 
   const realActive: ActiveCard | null = useMemo(() => {
     if (!REAL_MODE || ticketStatus.phase !== "revealed") return null;
@@ -103,13 +122,56 @@ export function Play() {
 
   function watchAgain() {
     setRevealedKey(null);
+    setCurrentTicketIdx(0);
     setWatchGeneration((g) => g + 1);
+  }
+
+  async function handleConnectWallet() {
+    setWalletError(undefined);
+    if (!hasInjectedWallet()) {
+      setWalletError("No wallet found — install Rabby, MetaMask, or similar to buy multiple cards at once.");
+      return;
+    }
+    setConnecting(true);
+    try {
+      await ensureRobinhoodChain();
+      const address = await connectWallet();
+      setConnectedWallet(address);
+    } catch (err) {
+      setWalletError((err as Error).message || "Couldn't connect — try again.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function handleBuyBatch() {
+    if (!connectedWallet || !SCRATCH_CORE_ADDRESS) return;
+    setWalletError(undefined);
+    setBuying(true);
+    setRevealedKey(null);
+    setCurrentTicketIdx(0);
+    try {
+      await ensureRobinhoodChain();
+      await sendBuyBatch({
+        account: connectedWallet,
+        contractAddress: SCRATCH_CORE_ADDRESS,
+        cardTypeIndex: CARD_TYPE_INDEX[selected],
+        count,
+        valueWei: CARD_PRICE_WEI[selected] * BigInt(count),
+      });
+      setWatchGeneration((g) => g + 1);
+    } catch (err) {
+      setWalletError((err as Error).message || "Transaction failed — try again.");
+    } finally {
+      setBuying(false);
+    }
   }
 
   function buy() {
     const fromEl = pickerRefs.current[selected];
     const toEl = scratchAreaRef.current;
     setActive(null);
+    setDemoQueue([]);
     setRevealedKey(null);
     if (fromEl && toEl) {
       setFlight({
@@ -127,17 +189,27 @@ export function Play() {
     setPendingCardType(cardType);
     window.setTimeout(() => {
       const config = CARD_CONFIGS.find((c) => c.type === cardType)!;
-      const tier = rollTier(config.jackpotEntries);
-      setPendingCardType(null);
-      setActive({
-        cardType,
-        tier,
-        floorUsd: config.floorUsd,
-        instantUsd: tierPayoutUsd(tier, cardType),
-        stockSymbol: tier === "Jackpot" ? "SPY" : pullStock(),
-        key: Date.now(),
+      const cards: ActiveCard[] = Array.from({ length: count }, (_, i) => {
+        const tier = rollTier(config.jackpotEntries);
+        return {
+          cardType,
+          tier,
+          floorUsd: config.floorUsd,
+          instantUsd: tierPayoutUsd(tier, cardType),
+          stockSymbol: tier === "Jackpot" ? "SPY" : pullStock(),
+          key: Date.now() + i,
+        };
       });
+      setPendingCardType(null);
+      setActive(cards[0]);
+      setDemoQueue(cards.slice(1));
     }, PENDING_PAYMENT_MS);
+  }
+
+  function nextDemoCard() {
+    setActive(demoQueue[0]);
+    setDemoQueue((q) => q.slice(1));
+    setRevealedKey(null);
   }
 
   const revealed = displayActive !== null && revealedKey === displayActive.key;
@@ -168,12 +240,32 @@ export function Play() {
             </div>
           ))}
         </div>
+        <div className="batch-stepper">
+          <span className="batch-stepper-label">Quantity</span>
+          <button
+            className="batch-stepper-btn"
+            type="button"
+            onClick={() => setCount((c) => Math.max(1, c - 1))}
+            disabled={count <= 1}
+          >
+            −
+          </button>
+          <span className="batch-stepper-count">{count}</span>
+          <button
+            className="batch-stepper-btn"
+            type="button"
+            onClick={() => setCount((c) => Math.min(MAX_BATCH, c + 1))}
+            disabled={count >= MAX_BATCH}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       <div className="panel">
         <div className="panel-title">{selectedConfig.type} Card</div>
 
-        {REAL_MODE && (
+        {REAL_MODE && count === 1 && (
           <div className="stack" style={{ gap: 8, marginBottom: 16 }}>
             <form
               className="address-form"
@@ -200,6 +292,18 @@ export function Play() {
           </div>
         )}
 
+        {REAL_MODE && count > 1 && connectedWallet && (
+          <div className="stack" style={{ gap: 8, marginBottom: 16 }}>
+            <div className="holding-row">
+              <span>Connected wallet</span>
+              <span style={{ fontFamily: "monospace", fontSize: 12 }}>{truncateAddress(connectedWallet)}</span>
+            </div>
+            <button className="btn btn-ghost" type="button" onClick={() => setConnectedWallet(undefined)}>
+              Disconnect
+            </button>
+          </div>
+        )}
+
         <div className="pack-details">
           <div className="pack-details-stats">
             <div>
@@ -217,42 +321,64 @@ export function Play() {
           </div>
 
           {REAL_MODE ? (
-            watchedAddress ? (
-              <div className="stack" style={{ gap: 8 }}>
-                <div className="holding-row">
-                  <span>Send exactly</span>
+            count === 1 ? (
+              watchedAddress ? (
+                <div className="stack" style={{ gap: 8 }}>
+                  <div className="holding-row">
+                    <span>Send exactly</span>
+                    <button
+                      type="button"
+                      className="copy-value"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(formatEther(CARD_PRICE_WEI[selected]));
+                        setAmountCopied(true);
+                        window.setTimeout(() => setAmountCopied(false), 1500);
+                      }}
+                    >
+                      {amountCopied ? "Copied!" : `${formatEther(CARD_PRICE_WEI[selected])} ETH`}
+                    </button>
+                  </div>
+                  <div className="holding-row">
+                    <span>To</span>
+                    <span style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all", textAlign: "right" }}>
+                      {SCRATCH_CORE_ADDRESS}
+                    </span>
+                  </div>
                   <button
+                    className="btn btn-ghost"
                     type="button"
-                    className="copy-value"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(formatEther(CARD_PRICE_WEI[selected]));
-                      setAmountCopied(true);
-                      window.setTimeout(() => setAmountCopied(false), 1500);
-                    }}
+                    onClick={() => navigator.clipboard?.writeText(SCRATCH_CORE_ADDRESS as string)}
                   >
-                    {amountCopied ? "Copied!" : `${formatEther(CARD_PRICE_WEI[selected])} ETH`}
+                    Copy contract address
                   </button>
                 </div>
+              ) : (
+                <div className="empty-state">Enter your address above to see payment instructions.</div>
+              )
+            ) : connectedWallet ? (
+              <div className="stack" style={{ gap: 8 }}>
                 <div className="holding-row">
-                  <span>To</span>
-                  <span style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all", textAlign: "right" }}>
-                    {SCRATCH_CORE_ADDRESS}
-                  </span>
+                  <span>Total for {count}</span>
+                  <span>{formatEther(CARD_PRICE_WEI[selected] * BigInt(count))} ETH</span>
                 </div>
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => navigator.clipboard?.writeText(SCRATCH_CORE_ADDRESS as string)}
-                >
-                  Copy contract address
+                <button className="btn" type="button" onClick={handleBuyBatch} disabled={buying}>
+                  {buying ? "Confirm in wallet…" : `Buy ${count} × ${selectedConfig.type}`}
                 </button>
+                {walletError && <div className="empty-state">{walletError}</div>}
               </div>
             ) : (
-              <div className="empty-state">Enter your address above to see payment instructions.</div>
+              <div className="stack" style={{ gap: 8 }}>
+                <button className="btn" type="button" onClick={handleConnectWallet} disabled={connecting}>
+                  {connecting ? "Connecting…" : "Connect wallet to buy multiple"}
+                </button>
+                {walletError && <div className="empty-state">{walletError}</div>}
+              </div>
             )
           ) : (
             <button className="btn" onClick={buy}>
-              Buy {selectedConfig.type} — {formatUsd(selectedConfig.priceUsd, 2)}
+              {count > 1
+                ? `Buy ${count} × ${selectedConfig.type} — ${formatUsd(selectedConfig.priceUsd * count, 2)}`
+                : `Buy ${selectedConfig.type} — ${formatUsd(selectedConfig.priceUsd, 2)}`}
             </button>
           )}
         </div>
@@ -287,6 +413,11 @@ export function Play() {
               </div>
             ) : displayActive ? (
               <>
+                {count > 1 && (
+                  <div className="batch-progress">
+                    Card {currentTicketIdx + 1} of {count}
+                  </div>
+                )}
                 <ScratchCard
                   key={displayActive.key}
                   cardType={displayActive.cardType}
@@ -303,27 +434,42 @@ export function Play() {
                       +{xpForCard(CARD_CONFIGS.find((c) => c.type === displayActive.cardType)!.priceUsd)} XP
                       <span className="xp-chip-sub">🔥 streak kept alive</span>
                     </div>
-                    <button className="btn btn-ghost" type="button" onClick={watchAgain}>
-                      Buy another
-                    </button>
+                    {currentTicketIdx < count - 1 && ticketStatuses[currentTicketIdx + 1]?.phase === "revealed" ? (
+                      <button className="btn" type="button" onClick={() => { setCurrentTicketIdx((i) => i + 1); setRevealedKey(null); }}>
+                        Next card ({count - currentTicketIdx - 1} remaining)
+                      </button>
+                    ) : currentTicketIdx < count - 1 ? (
+                      <div className="empty-state">Waiting for next card reveal…</div>
+                    ) : (
+                      <button className="btn btn-ghost" type="button" onClick={watchAgain}>
+                        Buy another
+                      </button>
+                    )}
                   </>
                 )}
               </>
-            ) : watchedAddress ? (
+            ) : effectiveWatchedAddress ? (
               <div className="empty-state">Waiting for your payment…</div>
             ) : (
-              <div className="empty-state">Enter your address above, then send ETH to start scratching.</div>
+              <div className="empty-state">
+                {count > 1 ? "Connect your wallet above, then buy to start scratching." : "Enter your address above, then send ETH to start scratching."}
+              </div>
             )
           ) : pendingCardType ? (
             <div className="pending-ticket" key={pendingCardType}>
               <img className="pending-ticket-art" src={`/packs/${pendingCardType.toLowerCase()}.webp`} alt="" />
               <div className="pending-ticket-label">
                 <span className="pending-spinner" />
-                Pending payment…
+                {count > 1 ? `Pending ${count} cards…` : "Pending payment…"}
               </div>
             </div>
           ) : active ? (
             <>
+              {(demoQueue.length > 0 || count > 1) && (
+                <div className="batch-progress">
+                  Card {count - demoQueue.length} of {count}
+                </div>
+              )}
               <ScratchCard
                 key={active.key}
                 cardType={active.cardType}
@@ -340,9 +486,15 @@ export function Play() {
                     +{xpForCard(CARD_CONFIGS.find((c) => c.type === active.cardType)!.priceUsd)} XP
                     <span className="xp-chip-sub">🔥 streak kept alive</span>
                   </div>
-                  <button className="btn btn-ghost" type="button" onClick={buy}>
-                    Buy again
-                  </button>
+                  {demoQueue.length > 0 ? (
+                    <button className="btn" type="button" onClick={nextDemoCard}>
+                      Next card ({demoQueue.length} remaining)
+                    </button>
+                  ) : (
+                    <button className="btn btn-ghost" type="button" onClick={buy}>
+                      Buy again
+                    </button>
+                  )}
                 </>
               )}
             </>
@@ -368,10 +520,12 @@ export function Play() {
       <div className="panel">
         <div className="panel-title">How buying works</div>
         <p style={{ color: "var(--fg-dim)", fontSize: 14, fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
-          This site never asks for a wallet connection or a signature. You buy a card by sending its price directly
-          to the game's contract address — a helper bot notices the payment and hands you your ticket on-chain, no
-          middleman ever holding your funds. Typing in your address just tells this page which payment to watch for;
-          it's not how the chain decides whose it is.{" "}
+          Buying one card never needs a wallet connection or a signature — send its price directly to the game's
+          contract address and a helper bot notices the payment and hands you your ticket on-chain, no middleman
+          ever holding your funds. Typing in your address just tells this page which payment to watch for; it's not
+          how the chain decides whose it is. Buying more than one at once needs your wallet connected instead, since
+          that's a real contract call (<code className="docs-code">buyBatch</code>) rather than a plain transfer —
+          your wallet builds and signs it, same as any other on-chain app.{" "}
           {REAL_MODE
             ? "The scratch above is live — it only unlocks once your real payment lands on-chain."
             : "The scratch above is a local demo of the odds and payout math while contracts are still being built."}

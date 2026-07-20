@@ -59,8 +59,10 @@ export function Docs() {
             <li>Scratch to see your prize. Stock lands in your wallet immediately.</li>
           </ol>
           <p className="docs-p">
-            One card per transaction for now — the contract supports buying several at once, but that needs a
-            wallet-connected flow to be safe and easy for most wallets. That's coming later.
+            To buy multiple cards at once, use the quantity stepper on the Play page (up to 5). Count &gt; 1 needs
+            a real contract call (<code className="docs-code">buyBatch</code>) rather than a plain ETH transfer, so
+            that path connects your wallet instead — it builds and signs the transaction for you, same as any other
+            on-chain app. A single card never needs a wallet at all.
           </p>
         </div>
 
